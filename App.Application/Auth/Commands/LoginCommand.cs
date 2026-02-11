@@ -151,15 +151,6 @@ namespace App.Application.Auth.Commands
                 claims.Add(new Claim(ClaimTypes.Role, role.ToString()));
             }
 
-            // Add permissions (limit to avoid bloated token)
-            var permissionCount = 0;
-            foreach (var perm in user.Permissions)
-            {
-                if (permissionCount++ >= 20)
-                    break;
-                claims.Add(new Claim("permission", perm));
-            }
-
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
