@@ -82,12 +82,6 @@ namespace App.Application.Auth.Commands
                          Roles = u.UserRoles
                              .Select(ur => ur.Role.Name)
                              .ToList(),
-
-                         Permissions = u.UserRoles
-                             .SelectMany(ur => ur.Role.RolePermissions)
-                             .Select(rp => rp.Permission.Name)
-                             .Distinct()
-                             .ToList()
                      })
                      .FirstOrDefaultAsync(cancellation);
                 
@@ -174,14 +168,7 @@ namespace App.Application.Auth.Commands
                 claims.Add(new Claim(ClaimTypes.Role, role.ToString()));
             }
 
-            // Add permissions (limit to avoid bloated token)
-            var permissionCount = 0;
-            foreach (var perm in user.Permissions)
-            {
-                if (permissionCount++ >= 20)
-                    break;
-                claims.Add(new Claim("permission", perm));
-            }
+           
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
