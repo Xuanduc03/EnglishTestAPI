@@ -57,11 +57,6 @@ namespace App.Application.Auth.Commands
                         FailedLoginAttempts = u.FailedLoginAttempts,
                         LockoutEnd = u.LockoutEnd,
                         Roles = u.UserRoles.Select(ur => ur.Role.Name).ToList(),
-                        Permissions = u.UserRoles
-                            .SelectMany(ur => ur.Role.RolePermissions)
-                            .Select(rp => rp.Permission.Name)
-                            .Distinct()
-                            .ToList()
                     })
                     .FirstOrDefaultAsync(cancellationToken);
 

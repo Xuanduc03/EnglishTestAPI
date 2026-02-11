@@ -23,7 +23,6 @@ namespace App.Application.DTOs
         public int FailedLoginAttempts { get; set; }
         public DateTime? LockoutEnd { get; set; }
         public List<string> Roles { get; set; } = new();
-        public List<string> Permissions { get; set; } = new();
     }
     public class LoginResultDto
     {
