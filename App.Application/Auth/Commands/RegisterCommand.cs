@@ -108,7 +108,7 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, G
             errors.Add("Mật khẩu không hợp lệ");
         }
         //username validation
-        if(string.IsNullOrWhiteSpace(dto.Fullname) || dto.Fullname.Length < 50)
+        if(string.IsNullOrWhiteSpace(dto.Fullname) || dto.Fullname.Length > 50)
         {
             errors.Add("Họ và tên không hợp lệ");
         }

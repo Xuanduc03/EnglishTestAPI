@@ -104,12 +104,7 @@ namespace App.Application.Questions.Commands
 
                 // Update questions
                 await UpdateQuestionsAsync(group, request.Questions, cancellationToken);
-                _context.ChangeTracker.Entries()
-                .Select(e => new
-                {
-                    Entity = e.Entity.GetType().Name,
-                    e.State
-                }).ToList();
+
                 await _context.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 
