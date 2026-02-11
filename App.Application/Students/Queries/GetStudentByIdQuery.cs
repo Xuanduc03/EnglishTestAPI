@@ -1,0 +1,66 @@
+﻿using App.Application.DTO;
+using App.Application.DTOs;
+using App.Domain.Entities;
+using App.Application.Interfaces;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+
+namespace App.Application.Queries
+{
+    public class GetStudentByIdQuery : IRequest<StudentDetailDto>
+    {
+        public Guid Id { get; set; }
+    }
+
+    public class GetStudentByIdQueryHandler : IRequestHandler<GetStudentByIdQuery, StudentDetailDto>
+    {
+        private readonly IAppDbContext _context;
+
+        public GetStudentByIdQueryHandler(IAppDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<StudentDetailDto> Handle(GetStudentByIdQuery request, CancellationToken cancellationToken)
+        {
+            var studentDto = await _context.Students
+                 .AsNoTracking() // Đọc dữ liệu thì luôn thêm cái này cho nhẹ
+                 .Where(s => s.Id == request.Id)
+                 .Select(s => new StudentDetailDto
+                 {
+                     Id = s.Id,
+                     Fullname = s.Fullname,
+                     CCCD = s.CCCD,
+                     Gender = s.Gender,
+                     SBD = s.SBD,
+                     School = s.School,
+                     CreatedAt = s.CreatedAt,
+                     UpdatedAt = s.UpdatedAt,
+                     UserId = s.UserId,
+
+                     // Flatten dữ liệu User (Lấy thẳng ra ngoài, không cần nested object rườm rà)
+                     Email = s.User.Email,
+                     Phone = s.User.Phone,
+                     // Nếu frontend thực sự cần full User info (Avatar...), thì mới map object này
+                     // Còn nếu không thì BỎ ĐI cho nhẹ
+                     User = s.User == null ? null : new UserDto
+                     {
+                         Id = s.User.Id,
+                         AvatarUrl = s.User.AvatarUrl,
+                         IsActive = s.User.IsActive,
+                         LastLogin = s.User.LastLogin
+                     }
+                 })
+                 .FirstOrDefaultAsync(cancellationToken);
+
+            // Kiểm tra null chuẩn
+            if (studentDto == null)
+            {
+                // Ném lỗi KeyNotFound để Middleware trả về 404 Not Found
+                throw new KeyNotFoundException($"Không tìm thấy học sinh với ID {request.Id}");
+            }
+
+            return studentDto;
+        }
+    }
+}
