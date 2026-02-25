@@ -430,8 +430,6 @@ namespace App.Application.Questions.Commands
                 DifficultyId = request.DifficultyId,
                 Transcript = request.Transcript,
                 IsActive = true,
-                CreatedAt = now,
-                UpdatedAt = now,
             };
 
             // Group Medias
@@ -487,8 +485,6 @@ namespace App.Application.Questions.Commands
                     DefaultScore = questionDto.DefaultScore,
                     ShuffleAnswers = questionDto.ShuffleAnswers,
                     IsActive = true,
-                    CreatedAt = now,
-                    UpdatedAt = now,
                 };
                 questions.Add(question);
 
@@ -535,7 +531,6 @@ namespace App.Application.Questions.Commands
                         QuestionGroupId = groupId,
                         Tag = tagName.Trim(),
                         TagType = "Topic",
-                        CreatedAt = now,
                     });
                 }
             }

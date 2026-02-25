@@ -1,11 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿
 namespace App.Domain.Entities
 {
+    /// <summary>
+    /// Enity: Lưu trữ media của câu hỏi nhóm
+    /// </summary>
     public class QuestionGroupMedia : BaseEntity
     {
         public Guid QuestionGroupId { get; set; }

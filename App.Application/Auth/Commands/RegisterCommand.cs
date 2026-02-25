@@ -13,7 +13,6 @@ public record RegisterUserCommand(RegisterDto User) : IRequest<Guid>;
 public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, Guid>
 {
     private readonly IAppDbContext _dbContext;
-    public static readonly Guid StudentId = Guid.Parse("d1812f11-590c-462e-b6d0-8bfa4f269bb2");
     public RegisterUserCommandHandler(IAppDbContext dbContext)
     {
         _dbContext = dbContext;
@@ -50,7 +49,7 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, G
 
         // lay role mac dinh
         var defaultRole = await _dbContext.Roles
-                        .FirstOrDefaultAsync(r => r.Id == StudentId, cancellationToken);
+                        .FirstOrDefaultAsync(r => r.Name.ToLower() == "student", cancellationToken);
 
         if(defaultRole == null)
         {
@@ -76,17 +75,22 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, G
         };
 
         // 4. using transaction
+        await using var transaction = await _dbContext.BeginTransactionAsync(cancellationToken);
+
         try
         {
             _dbContext.Users.Add(user);
-
+            _dbContext.UserRoles.Add(newUserRole);
+            _dbContext.Students.Add(newStudent);    
             await _dbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.CommitTransactionAsync(cancellationToken);
 
             return user.Id;
         }
         catch (DbUpdateException ex)
         {
             // Log ex here
+            await _dbContext.RollbackTransactionAsync(cancellationToken);
             throw new InvalidOperationException("Lỗi cơ sở dữ liệu khi tạo tài khoản.", ex);
         }
     }
@@ -103,7 +107,7 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, G
         }
 
         //password validation 
-        if(string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 8)
+        if(string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 6)
         {
             errors.Add("Mật khẩu không hợp lệ");
         }

@@ -28,7 +28,7 @@ namespace App.Application.Users.Queries
 
         protected override IQueryable<User> BuildQuery(IQueryable<User> query, GetUsersQuery request)
         {
-            //  1. include roles
+            //  1. include roles    
             query = query.Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role);
 

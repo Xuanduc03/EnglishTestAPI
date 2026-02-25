@@ -19,7 +19,6 @@ namespace App.Application.Interfaces
         public DbSet<ExamSection> ExamSections { get; set; }
         public DbSet<ExamQuestion> ExamQuestions { get; set; }
         public DbSet<ScoreTable> ScoreTables { get; set; }
-        public DbSet<ExamStructureItem> ExamStructures { get; set; }
 
         // --- KHỐI QUESTION BANK  ---
         public DbSet<Question> Questions { get; set; }
@@ -31,8 +30,12 @@ namespace App.Application.Interfaces
 
         // --- KHỐI KẾT QUẢ ---
         public DbSet<ExamResult> ExamResults { get; set; }
-        public DbSet<StudentAnswer> StudentAnswers { get; set; }
-
+        public DbSet<ExamSectionResult> ExamSectionResults { get; set; }
+        /// <summary>
+        ///  Khối thi của user
+        /// </summary>
+        public DbSet<ExamAttempt> ExamAttempts { get; set; }
+        public DbSet<ExamAnswer> ExamAnswers { get; set; }
         public DbSet<PracticeAttempt> PracticeAttempts { get; set; }
         public DbSet<PracticeAnswer> PracticeAnswers { get; set; }
         public DbSet<PracticePartResult> PracticePartResults { get; set; }

@@ -2,12 +2,14 @@
 
 namespace App.Domain.Entities
 {
+    /// <summary>
+    /// Entity : Định nghĩa các câu hỏi trong phần thi của bài thi
+    /// </summary>
     public class ExamQuestion : BaseEntity
     {
         // đề thi
         public Guid ExamId { get; set; }
         public virtual Exam Exam { get; set; }
-        
         // phần thi
         public Guid ExamSectionId { get; set; }
         public virtual ExamSection ExamSection { get; set; }
@@ -15,6 +17,7 @@ namespace App.Domain.Entities
         // Link tới câu hỏi gốc trong kho
         public Guid QuestionId { get; set; }
         public virtual Question Question { get; set; }
+
 
         // Đánh số thứ tự câu hỏi
         public int QuestionNo { get; set; }
@@ -31,5 +34,6 @@ namespace App.Domain.Entities
         // Có được phép tráo câu này không? 
         // VD: 3 câu hỏi liên quan đến 1 bài đọc thì nên ghim lại gần nhau, ko đảo lộn xộn.
         public bool IsShuffleable { get; set; } = true;
+        public virtual ICollection<ExamAnswer> ExamAnswers { get; set; }
     }
 }

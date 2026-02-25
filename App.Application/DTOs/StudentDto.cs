@@ -100,4 +100,15 @@ namespace App.Application.DTO
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }
+
+    // Bento Dashboard user info dto
+    public class DashboardInfoDto
+    {
+        public string Name { get; set; }
+        public string Rank { get; set; }
+        public int CurrentScore { get; set; }
+        public int TargetScore { get; set; }
+        public int Streak { get; set; }
+        public List<bool> StreakHistory { get; set; } // 7 ngày gần nhất
+    }
 }

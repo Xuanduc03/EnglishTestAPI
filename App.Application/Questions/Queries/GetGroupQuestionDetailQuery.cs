@@ -49,6 +49,7 @@ namespace App.Application.Questions.Queries
                 CategoryId = group.CategoryId,
                 Content = group.Content,
                 Explanation = group.Explanation,
+                DifficultyId = group.DifficultyId,
                 Transcript = group.Transcript,
                 MediaJson = group.MediaJson,
                 IsActive = group.IsActive,

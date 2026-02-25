@@ -10,6 +10,11 @@ using FluentValidation;
 using App.Infrastructure.Cloudinary;
 using App.Application.Questions.Services;
 using App.Application.Questions.Services.Interfaces;
+using App.API.Middleware;
+using App.Application.Services.Interface;
+using App.Application.Services;
+using App.Application.Validators;
+using App.Application.ExamAttempts.Commands;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,7 +28,6 @@ builder.Services.Configure<CloudinaryOptions>(
     builder.Configuration.GetSection("Cloudinary"));
 
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
-
 
 builder.Services.AddScoped<IAppDbContext>(provider =>
     provider.GetRequiredService<AppDbContext>());
@@ -46,6 +50,16 @@ builder.Services.AddCors(options =>
         });
 });
 
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssemblyContaining<StartExamCommand>();  // Assembly chứa commands/queries
+    // cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()); // Nếu cùng assembly
+
+    // Thêm ValidationBehavior vào pipeline (chạy trước handler)
+
+    // Optional: thêm logging behavior nếu bạn có
+    // cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
+});
 
 
 builder.Services.AddEndpointsApiExplorer();
@@ -113,11 +127,13 @@ builder.Services.AddAutoMapper(appApplicationAssembly);
 builder.Services.AddValidatorsFromAssembly(appApplicationAssembly);
 
 // service import excel question
+builder.Services.AddValidatorsFromAssemblyContaining<StartExamCommandValidator>();
 builder.Services.AddScoped<IUtilExcelService, UtilExcelService>();
 builder.Services.AddScoped<IExcelQuestionParserService, ExcelQuestionParserService>();
 builder.Services.AddScoped<IExcelZipParser, ExcelZipParserService>();
 builder.Services.AddScoped<IExcelZipImportService, ExcelZipImportService>();
-
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 builder.Services.AddAuthorization();
 
@@ -132,6 +148,7 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 
 app.UseHttpsRedirection();
+app.UseExceptionMiddleware();
 
 // Quan trọng: Phải gọi UseAuthentication() TRƯỚC UseAuthorization()
 app.UseAuthentication();

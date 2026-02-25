@@ -15,7 +15,7 @@ namespace App.Api.Controllers
     [Route("api/students")]
     public class StudentController : ControllerBase
     {
-        private readonly IMediator _mediator; 
+        private readonly IMediator _mediator;
         private readonly ICloudinaryService _cloudinary;
         private readonly IAppDbContext _context;
         private readonly ILogger<StudentController> _logger;
@@ -33,108 +33,83 @@ namespace App.Api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetStudents([FromQuery] GetAllStudentsQuery query)
         {
-            try
-            {
 
-                var result = await _mediator.Send(query);
-                return Ok(new { success = true, data = result });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while getting classes");
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
+
+            var result = await _mediator.Send(query);
+            return Ok(new { success = true, data = result });
+
         }
         #region using for student
         [HttpGet("me")]
         public async Task<IActionResult> GetProfileStudent()
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var query = new GetStudentProfile(userId);
-                var result = await _mediator.Send(query);
-                return Ok(new { success = true, data = result });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = ex.Message
-                });
-            }
+
+            var userId = GetCurrentUserId();
+            var query = new GetStudentProfile(userId);
+            var result = await _mediator.Send(query);
+            return Ok(new { success = true, data = result });
+
         }
 
         [HttpPut("me")]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> UpdateStudentProfile([FromForm ] UpdateStudentProfileCommand request)
+        public async Task<IActionResult> UpdateStudentProfile([FromForm] UpdateStudentProfileCommand request)
         {
-            try
+            // Lấy user hiện tại để lấy avatar public id cũ (nếu có)
+            var currentUser = await GetCurrentUser();
+            string? currentAvatarPublicId = currentUser?.AvatarPublicId;
+
+            // Nếu có avatar mới upload, xử lý upload và xóa avatar cũ
+            if (request.AvatarFile != null && request.AvatarFile.Length > 0)
             {
-                // Lấy user hiện tại để lấy avatar public id cũ (nếu có)
-                var currentUser = await GetCurrentUser();
-                string? currentAvatarPublicId = currentUser?.AvatarPublicId;
+                // Upload avatar mới
+                var upload = await _cloudinary.UploadImageAsync(
+                    request.AvatarFile,
+                    "avatars/students"
+                );
 
-                // Nếu có avatar mới upload, xử lý upload và xóa avatar cũ
-                if (request.AvatarFile != null && request.AvatarFile.Length > 0)
+                // Gán URL và PublicId mới vào command
+                request = request with
                 {
-                    // Upload avatar mới
-                    var upload = await _cloudinary.UploadImageAsync(
-                        request.AvatarFile,
-                        "avatars/students"
-                    );
+                    AvatarUrl = upload.Url,
+                    AvatarPublicId = upload.PublicId
+                };
 
-                    // Gán URL và PublicId mới vào command
-                    request = request with
+                // Xóa avatar cũ nếu tồn tại
+                if (!string.IsNullOrEmpty(currentAvatarPublicId))
+                {
+                    try
                     {
-                        AvatarUrl = upload.Url,
-                        AvatarPublicId = upload.PublicId
-                    };
-
-                    // Xóa avatar cũ nếu tồn tại
-                    if (!string.IsNullOrEmpty(currentAvatarPublicId))
+                        await _cloudinary.DeleteAsync(currentAvatarPublicId);
+                    }
+                    catch
                     {
-                        try
-                        {
-                            await _cloudinary.DeleteAsync(currentAvatarPublicId);
-                        }
-                        catch
-                        {
-                            // Log error nhưng không làm fail request
-                            _logger.LogWarning($"Failed to delete old avatar: {currentAvatarPublicId}");
-                        }
+                        // Log error nhưng không làm fail request
+                        _logger.LogWarning($"Failed to delete old avatar: {currentAvatarPublicId}");
                     }
                 }
-                else
-                {
-                    // Nếu không có file mới, giữ lại giá trị cũ
-                    request = request with
-                    {
-                        AvatarUrl = currentUser?.AvatarUrl,
-                        AvatarPublicId = currentUser?.AvatarPublicId
-                    };
-                }
-
-                // Thiết lập UserId
-                request = request with { UserId = GetCurrentUserId() };
-
-                var result = await _mediator.Send(request);
-
-                return Ok(new
-                {
-                    success = true,
-                    data = result
-                });
             }
-            catch (Exception ex)
+            else
             {
-                return BadRequest(new
+                // Nếu không có file mới, giữ lại giá trị cũ
+                request = request with
                 {
-                    success = false,
-                    message = ex.Message
-                });
+                    AvatarUrl = currentUser?.AvatarUrl,
+                    AvatarPublicId = currentUser?.AvatarPublicId
+                };
             }
+
+            // Thiết lập UserId
+            request = request with { UserId = GetCurrentUserId() };
+
+            var result = await _mediator.Send(request);
+
+            return Ok(new
+            {
+                success = true,
+                data = result
+            });
+
         }
 
         #endregion
@@ -142,106 +117,76 @@ namespace App.Api.Controllers
         [HttpGet("{id}/chi-tiet")]
         public async Task<IActionResult> GetStudentById(Guid id)
         {
-            try
-            {
-                var query = new GetStudentByIdQuery { Id = id };
-                var result = await _mediator.Send(query);
-                return Ok(new { success = true, data = result });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while getting student detail");
-                return StatusCode(500, new { sucess = false, message = ex.Message });
-            }
+
+            var query = new GetStudentByIdQuery { Id = id };
+            var result = await _mediator.Send(query);
+            return Ok(new { success = true, data = result });
+
         }
 
         [HttpPost("")]
         public async Task<IActionResult> CreateStudent(CreateStudentCommand request)
         {
-            try
-            {
-                var result = await _mediator.Send(request);
 
-                return Ok(new { success = true, data = result });
+            var result = await _mediator.Send(request);
 
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while to creating student");
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
+            return Ok(new { success = true, data = result });
+
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateStudent(Guid id, [FromBody] UpdateStudentCommand command)
         {
-            try
-            {
-                command.Id = id;
-                var result = await _mediator.Send(command);
 
-                return Ok(new { success = true, data = result });
+            command.Id = id;
+            var result = await _mediator.Send(command);
 
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while to update student");
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
+            return Ok(new { success = true, data = result });
+
         }
 
         [HttpDelete]
         [Route("{id}")]
         public async Task<IActionResult> DeleteStudent([FromRoute] Guid id)
         {
-            try
+
+            var command = new DeleteStudentCommand
             {
-                var command = new DeleteStudentCommand
-                {
-                    id = id,
-                    ids = null, // Xóa đơn thì list này null
-                    DeletedBy = GetCurrentUserId() // Hàm lấy ID người xóa
-                };
+                id = id,
+                ids = null, // Xóa đơn thì list này null
+                DeletedBy = GetCurrentUserId() // Hàm lấy ID người xóa
+            };
 
-                var result = await _mediator.Send(command);
+            var result = await _mediator.Send(command);
 
-                if (!result)
-                    return NotFound(new { success = false, message = "Student not found or already deleted." });
+            if (!result)
+                return NotFound(new { success = false, message = "Student not found or already deleted." });
 
-                return Ok(new { success = true, message = "Student deleted successfully." });
+            return Ok(new { success = true, message = "Student deleted successfully." });
 
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
+
         }
 
         [HttpPost("bulk-delete")] // Dùng POST an toàn hơn DELETE khi có Body
         public async Task<IActionResult> BulkDeleteStudents([FromBody] List<Guid> ids)
         {
-            try
+
+            if (ids == null || !ids.Any())
             {
-                if (ids == null || !ids.Any())
-                {
-                    return BadRequest(new { success = false, message = "No IDs provided." });
-                }
-
-                var command = new DeleteStudentCommand
-                {
-                    id = null,
-                    ids = ids,
-                    DeletedBy = GetCurrentUserId()
-                };
-
-                var result = await _mediator.Send(command);
-
-                return Ok(new { success = true, message = $"{ids.Count} students processed for deletion." });
+                return BadRequest(new { success = false, message = "No IDs provided." });
             }
-            catch (Exception ex)
+
+            var command = new DeleteStudentCommand
             {
-                return BadRequest(new { success = false, message = ex.Message });
-            }
+                id = null,
+                ids = ids,
+                DeletedBy = GetCurrentUserId()
+            };
+
+            var result = await _mediator.Send(command);
+
+            return Ok(new { success = true, message = $"{ids.Count} students processed for deletion." });
+
         }
         private Guid GetCurrentUserId()
         {

@@ -183,33 +183,32 @@ namespace App.Application.Questions.Services
 
         // ================= MEDIA =================
 
-        private async Task<IDictionary<string, string>> UploadAllMediaAsync(
-      Dictionary<string, string> mediaIndex,
-      CancellationToken ct)
+        private async Task<IDictionary<string, string>> UploadAllMediaAsync(Dictionary<string, byte[]> mediaIndex, CancellationToken ct)
         {
             var uploaded = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var errors = new ConcurrentBag<string>();
 
             var tasks = mediaIndex.Select(async kv =>
             {
-                var (fileName, filePath) = kv;
+                var (fileName, fileBytes) = kv;
                 var normalizedKey = NormalizeFileName(fileName);
 
                 try
                 {
-                    var ext = Path.GetExtension(filePath).ToLowerInvariant();
+                    var ext = Path.GetExtension(fileName).ToLowerInvariant(); // ← fileName, không phải filePath
+                    using var stream = new MemoryStream(fileBytes);
 
                     if (AllowedAudioExt.Contains(ext))
                     {
-                        var res = await _cloudinary.UploadAudioAsync(filePath, "toeic/single/audio", ct);
+                        var res = await _cloudinary.UploadAudioInternalAsync(stream, fileName, "toeic/single/audio", ct);
                         uploaded[normalizedKey] = res.Url;
-                        _logger.LogInformation($"  Uploaded audio: {fileName}");
+                        _logger.LogInformation($"Uploaded audio: {fileName}");
                     }
                     else if (AllowedImageExt.Contains(ext))
                     {
-                        var res = await _cloudinary.UploadImageAsync(filePath, "toeic/single/image", ct);
+                        var res = await _cloudinary.UploadImageInternalAsync(stream, fileName, "toeic/single/image", ct);
                         uploaded[normalizedKey] = res.Url;
-                        _logger.LogInformation($"  Uploaded image: {fileName}");
+                        _logger.LogInformation($"Uploaded image: {fileName}");
                     }
                     else
                     {
@@ -218,11 +217,10 @@ namespace App.Application.Questions.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"❌ Upload failed: {fileName}");
+                    _logger.LogError(ex, $"Upload failed: {fileName}");
                     errors.Add($"{fileName}: {ex.Message}");
                 }
             }).ToList();
-
             await Task.WhenAll(tasks);
 
             //   Check errors

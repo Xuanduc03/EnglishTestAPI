@@ -23,7 +23,7 @@ namespace App.Application.Questions.Dtos
         public string TempFolder { get; set; }
         public string ExcelPath { get; set; }
 
-        public Dictionary<string, string> MediaIndex { get; set; } = new();
+        public Dictionary<string, byte[]> MediaIndex { get; set; } = new();
         public List<SheetPreviewSummary> Sheets { get; set; } = new();
         public List<string> MissingMediaFiles { get; set; } = new();
         public bool HasError =>

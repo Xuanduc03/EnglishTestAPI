@@ -31,7 +31,10 @@ namespace App.Application.Questions.Queries
         protected override IQueryable<Question> BuildQuery(IQueryable<Question> query, GetAllQuestionsQuery request)
         {
             // Luôn lọc soft delete
-            query = query.Where(x => !x.IsDeleted);
+            query = query
+                .AsNoTracking()
+                .Include(q => q.Group)
+                .Where(x => !x.IsDeleted);
 
             // 1. LOGIC QUAN TRỌNG NHẤT: Lọc theo Danh mục (Part)
             // Phục vụ cho cái bảng con (Detail Table) ở Frontend
@@ -58,7 +61,8 @@ namespace App.Application.Questions.Queries
                 var key = request.Keyword.Trim();
                 query = query.Where(x =>
                      EF.Functions.Like(x.Content, $"%{key}%") ||
-                     EF.Functions.Like(x.Explanation, $"%{key}%")
+                     EF.Functions.Like(x.Explanation, $"%{key}%") ||
+                     (x.Group != null && EF.Functions.Like(x.Group.Content, $"%{key}%")) 
                  );
             }
 
@@ -68,7 +72,6 @@ namespace App.Application.Questions.Queries
                 query = query.Where(x => x.QuestionType == request.QuestionType);
             }
 
-            query = ApplySorting(query, request);
             // 4. Lọc ngày tháng
             if (request.CreateFrom.HasValue)
             {
@@ -79,10 +82,8 @@ namespace App.Application.Questions.Queries
                 var toDate = request.CreateTo.Value.Date.AddDays(1).AddTicks(-1);
                 query = query.Where(x => x.CreatedAt <= toDate);
             }
+            query = ApplySorting(query, request);
 
-            // 5. Sắp xếp mặc định: Mới nhất lên đầu
-            // Category thì xếp theo OrderIndex, nhưng Question thì nên xếp theo ngày tạo
-            query = query.OrderByDescending(x => x.CreatedAt);
 
             return query;
         }

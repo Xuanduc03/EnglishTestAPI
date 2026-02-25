@@ -141,208 +141,6 @@ namespace App.Infrastructure.Migrations
                     b.ToTable("categories", (string)null);
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.Class", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid?>("CategoryId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("EndDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Location")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("MaxStudents")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("Room")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("ScheduleInfo")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("TuitionFee")
-                        .HasColumnType("decimal(65,30)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CategoryId");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.HasIndex("CreatedBy");
-
-                    b.ToTable("classes", (string)null);
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.ClassStudent", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("ClassId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("EnrolledAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("StudentId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid?>("StudentId1")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClassId");
-
-                    b.HasIndex("StudentId");
-
-                    b.HasIndex("StudentId1");
-
-                    b.ToTable("class_students", (string)null);
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.ClassTeacher", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("AssignedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime(6)")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP(6)");
-
-                    b.Property<Guid>("ClassId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<int>("Role")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("TeacherId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid?>("TeacherId1")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClassId");
-
-                    b.HasIndex("TeacherId");
-
-                    b.HasIndex("TeacherId1");
-
-                    b.ToTable("class_teachers", (string)null);
-                });
-
             modelBuilder.Entity("App.Domain.Entities.Exam", b =>
                 {
                     b.Property<Guid>("Id")
@@ -374,6 +172,9 @@ namespace App.Infrastructure.Migrations
                     b.Property<int>("Duration")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("tinyint(1)");
 
@@ -394,6 +195,9 @@ namespace App.Infrastructure.Migrations
 
                     b.Property<bool>("ShuffleQuestions")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("StartDate")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -425,12 +229,194 @@ namespace App.Infrastructure.Migrations
                     b.ToTable("exams", (string)null);
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.ExamQuestion", b =>
+            modelBuilder.Entity("App.Domain.Entities.ExamAnswer", b =>
                 {
-                    b.Property<Guid>("ExamSectionId")
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<DateTime?>("AnsweredAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CorrectAnswerId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ExamAttemptId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ExamQuestionId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("IsAnswered")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<double>("Point")
+                        .HasColumnType("double");
+
                     b.Property<Guid>("QuestionId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("SelectedAnswerId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int?>("TimeSpentSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExamAttemptId");
+
+                    b.HasIndex("ExamQuestionId");
+
+                    b.ToTable("exam_answer", (string)null);
+                });
+
+            modelBuilder.Entity("App.Domain.Entities.ExamAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<int?>("ActualTimeSeconds")
+                        .HasColumnType("int");
+
+                    b.PrimitiveCollection<string>("AntiCheatFlags")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("CorrectAnswers")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ExamId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("IncorrectAnswers")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int?>("LastAnsweredIndex")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ListeningCorrect")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ListeningScore")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PageReloadCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProgressSnapshot")
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("ReadingCorrect")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ReadingScore")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("SubmitedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("TabSwitchCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TimeLimitSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalQuestions")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TotalScore")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnanswerQuestions")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("UserAgent")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<byte[]>("VersionNumber")
+                        .IsRequired()
+                        .HasColumnType("longblob");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExamId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("exam_attempt", (string)null);
+                });
+
+            modelBuilder.Entity("App.Domain.Entities.ExamQuestion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -448,7 +434,7 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid>("ExamId")
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid>("Id")
+                    b.Property<Guid>("ExamSectionId")
                         .HasColumnType("char(36)");
 
                     b.Property<bool>("IsDeleted")
@@ -466,6 +452,9 @@ namespace App.Infrastructure.Migrations
                     b.Property<decimal>("Point")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("char(36)");
+
                     b.Property<int>("QuestionNo")
                         .HasColumnType("int");
 
@@ -475,9 +464,11 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("char(36)");
 
-                    b.HasKey("ExamSectionId", "QuestionId");
+                    b.HasKey("Id");
 
                     b.HasIndex("ExamId");
+
+                    b.HasIndex("ExamSectionId");
 
                     b.HasIndex("QuestionId");
 
@@ -599,11 +590,17 @@ namespace App.Infrastructure.Migrations
                     b.ToTable("exam_sections", (string)null);
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.ExamStructureItem", b =>
+            modelBuilder.Entity("App.Domain.Entities.ExamSectionResult", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
+
+                    b.Property<int?>("ConvertedScore")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CorrectAnswers")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -617,37 +614,17 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid>("ExamId")
+                    b.Property<Guid>("ExamAttemptId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ExamSectionId")
                         .HasColumnType("char(36)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<int?>("MaxDifficulty")
+                    b.Property<int>("TotalQuestions")
                         .HasColumnType("int");
-
-                    b.Property<int?>("MinDifficulty")
-                        .HasColumnType("int");
-
-                    b.Property<int>("OrderIndex")
-                        .HasColumnType("int");
-
-                    b.Property<string>("PartName")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("QuestionCount")
-                        .HasColumnType("int");
-
-                    b.Property<double>("ScorePerQuestion")
-                        .HasColumnType("double");
-
-                    b.Property<string>("SelectionMode")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<Guid>("SourceCategoryId")
-                        .HasColumnType("char(36)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -657,7 +634,11 @@ namespace App.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ExamStructures");
+                    b.HasIndex("ExamAttemptId");
+
+                    b.HasIndex("ExamSectionId");
+
+                    b.ToTable("exam_section_result", (string)null);
                 });
 
             modelBuilder.Entity("App.Domain.Entities.Permission", b =>
@@ -791,6 +772,9 @@ namespace App.Infrastructure.Migrations
                     b.Property<double>("AccuracyPercentage")
                         .HasPrecision(5, 2)
                         .HasColumnType("double");
+
+                    b.Property<int?>("ActualTimeSeconds")
+                        .HasColumnType("int");
 
                     b.Property<Guid?>("CategoryId")
                         .HasColumnType("char(36)");
@@ -1384,6 +1368,9 @@ namespace App.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("char(36)");
+
                     b.Property<string>("ConversionJson")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -1406,10 +1393,6 @@ namespace App.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<string>("SkillType")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -1417,6 +1400,8 @@ namespace App.Infrastructure.Migrations
                         .HasColumnType("char(36)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
 
                     b.HasIndex("ExamId");
 
@@ -1474,9 +1459,6 @@ namespace App.Infrastructure.Migrations
                     b.Property<string>("SBD")
                         .HasColumnType("longtext");
 
-                    b.Property<string>("School")
-                        .HasColumnType("longtext");
-
                     b.Property<int>("Streak")
                         .HasColumnType("int");
 
@@ -1497,140 +1479,6 @@ namespace App.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("students", (string)null);
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.StudentAnswer", b =>
-                {
-                    b.Property<Guid>("ExamResultId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("QuestionId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<bool>("AiGraded")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Feedback")
-                        .HasColumnType("longtext");
-
-                    b.Property<Guid>("Id")
-                        .HasColumnType("char(36)");
-
-                    b.Property<bool>("IsCorrect")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("RecordingUrl")
-                        .HasColumnType("longtext");
-
-                    b.Property<Guid?>("SelectedAnswerId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("TextAnswer")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<int?>("WordCount")
-                        .HasColumnType("int");
-
-                    b.HasKey("ExamResultId", "QuestionId");
-
-                    b.ToTable("student_answers", (string)null);
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.Teacher", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Bio")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Degree")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Department")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Experience")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Fullname")
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Specialty")
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<string>("TeacherCode")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Title")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid?>("UserId1")
-                        .HasColumnType("char(36)");
-
-                    b.Property<int>("YearsOfExperience")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("UserId1")
-                        .IsUnique();
-
-                    b.ToTable("teachers", (string)null);
                 });
 
             modelBuilder.Entity("App.Domain.Entities.User", b =>
@@ -1777,67 +1625,42 @@ namespace App.Infrastructure.Migrations
                     b.Navigation("Parent");
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.Class", b =>
+            modelBuilder.Entity("App.Domain.Entities.ExamAnswer", b =>
                 {
-                    b.HasOne("App.Domain.Entities.Category", "Category")
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                    b.HasOne("App.Domain.Entities.ExamAttempt", "Attempt")
+                        .WithMany("Answers")
+                        .HasForeignKey("ExamAttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.HasOne("App.Domain.Entities.User", "Creator")
-                        .WithMany()
-                        .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.Restrict);
+                    b.HasOne("App.Domain.Entities.ExamQuestion", "ExamQuestions")
+                        .WithMany("ExamAnswers")
+                        .HasForeignKey("ExamQuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.Navigation("Category");
+                    b.Navigation("Attempt");
 
-                    b.Navigation("Creator");
+                    b.Navigation("ExamQuestions");
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.ClassStudent", b =>
+            modelBuilder.Entity("App.Domain.Entities.ExamAttempt", b =>
                 {
-                    b.HasOne("App.Domain.Entities.Class", "Class")
-                        .WithMany("Students")
-                        .HasForeignKey("ClassId")
+                    b.HasOne("App.Domain.Entities.Exam", "Exam")
+                        .WithMany("Attempts")
+                        .HasForeignKey("ExamId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("App.Domain.Entities.Student", "Student")
-                        .WithMany()
-                        .HasForeignKey("StudentId")
+                    b.HasOne("App.Domain.Entities.User", "User")
+                        .WithMany("ExamAttempts")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("App.Domain.Entities.Student", null)
-                        .WithMany("ClassStudents")
-                        .HasForeignKey("StudentId1");
+                    b.Navigation("Exam");
 
-                    b.Navigation("Class");
-
-                    b.Navigation("Student");
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.ClassTeacher", b =>
-                {
-                    b.HasOne("App.Domain.Entities.Class", "Class")
-                        .WithMany("Teachers")
-                        .HasForeignKey("ClassId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("App.Domain.Entities.Teacher", "Teacher")
-                        .WithMany()
-                        .HasForeignKey("TeacherId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("App.Domain.Entities.Teacher", null)
-                        .WithMany("ClassAssignments")
-                        .HasForeignKey("TeacherId1");
-
-                    b.Navigation("Class");
-
-                    b.Navigation("Teacher");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("App.Domain.Entities.ExamQuestion", b =>
@@ -1903,6 +1726,25 @@ namespace App.Infrastructure.Migrations
                     b.Navigation("Category");
 
                     b.Navigation("Exam");
+                });
+
+            modelBuilder.Entity("App.Domain.Entities.ExamSectionResult", b =>
+                {
+                    b.HasOne("App.Domain.Entities.ExamAttempt", "Attempt")
+                        .WithMany("SectionResults")
+                        .HasForeignKey("ExamAttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("App.Domain.Entities.ExamSection", "Section")
+                        .WithMany()
+                        .HasForeignKey("ExamSectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Attempt");
+
+                    b.Navigation("Section");
                 });
 
             modelBuilder.Entity("App.Domain.Entities.PracticeAnswer", b =>
@@ -2079,11 +1921,18 @@ namespace App.Infrastructure.Migrations
 
             modelBuilder.Entity("App.Domain.Entities.ScoreTable", b =>
                 {
+                    b.HasOne("App.Domain.Entities.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("App.Domain.Entities.Exam", "Exam")
                         .WithMany("ScoreTables")
                         .HasForeignKey("ExamId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Category");
 
                     b.Navigation("Exam");
                 });
@@ -2095,32 +1944,6 @@ namespace App.Infrastructure.Migrations
                         .HasForeignKey("App.Domain.Entities.Student", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.StudentAnswer", b =>
-                {
-                    b.HasOne("App.Domain.Entities.ExamResult", "ExamResult")
-                        .WithMany("StudentAnswers")
-                        .HasForeignKey("ExamResultId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ExamResult");
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.Teacher", b =>
-                {
-                    b.HasOne("App.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("App.Domain.Entities.User", null)
-                        .WithOne("TeacherProfile")
-                        .HasForeignKey("App.Domain.Entities.Teacher", "UserId1");
 
                     b.Navigation("User");
                 });
@@ -2149,23 +1972,25 @@ namespace App.Infrastructure.Migrations
                     b.Navigation("Children");
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.Class", b =>
-                {
-                    b.Navigation("Students");
-
-                    b.Navigation("Teachers");
-                });
-
             modelBuilder.Entity("App.Domain.Entities.Exam", b =>
                 {
+                    b.Navigation("Attempts");
+
                     b.Navigation("ScoreTables");
 
                     b.Navigation("Sections");
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.ExamResult", b =>
+            modelBuilder.Entity("App.Domain.Entities.ExamAttempt", b =>
                 {
-                    b.Navigation("StudentAnswers");
+                    b.Navigation("Answers");
+
+                    b.Navigation("SectionResults");
+                });
+
+            modelBuilder.Entity("App.Domain.Entities.ExamQuestion", b =>
+                {
+                    b.Navigation("ExamAnswers");
                 });
 
             modelBuilder.Entity("App.Domain.Entities.ExamSection", b =>
@@ -2210,23 +2035,13 @@ namespace App.Infrastructure.Migrations
                     b.Navigation("UserRoles");
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.Student", b =>
-                {
-                    b.Navigation("ClassStudents");
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.Teacher", b =>
-                {
-                    b.Navigation("ClassAssignments");
-                });
-
             modelBuilder.Entity("App.Domain.Entities.User", b =>
                 {
+                    b.Navigation("ExamAttempts");
+
                     b.Navigation("RefreshTokens");
 
                     b.Navigation("StudentProfile");
-
-                    b.Navigation("TeacherProfile");
 
                     b.Navigation("UserRoles");
                 });

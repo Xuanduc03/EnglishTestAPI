@@ -17,15 +17,16 @@ namespace App.Application.Questions.Commands
         public Guid Id { get; set; } // ID của QuestionGroup cần update
         public Guid CategoryId { get; set; }
         public string? GroupContent { get; set; }
-        public string? Transcript { get; set; }
-        public string? MediaJson { get; set; }
+        public string? Explanation { get; set; }
         public Guid? DifficultyId { get; set; }
         public bool IsActive { get; set; } = true;
 
         // FILES - Upload mới (nếu có)
         public IFormFile? GroupAudioFile { get; set; }
         public IFormFile? GroupImageFile { get; set; }
-
+        // File url đã tồn tại và chỉ cần url
+        public string? AudioUrl { get; set; }
+        public string? ImaageUrl { get; set; }
         // Flags để xóa file cũ
         public bool DeleteAudio { get; set; } = false;
         public bool DeleteImage { get; set; } = false;
@@ -98,7 +99,7 @@ namespace App.Application.Questions.Commands
                         q.CategoryId = request.CategoryId;
                     }
                 }
-
+             
                 // Apply media changes (DB only)
                 ApplyMediaChanges(group.Id, uploadResults);
 
@@ -161,8 +162,11 @@ namespace App.Application.Questions.Commands
             if (category?.Name.Contains("Part 3") == true || category?.Name.Contains("Part 4") == true)
             {
 
-                bool hasOldAudio = group.Media.Any(m => m.MediaType == "audio"); // Lưu ý chữ thường
-                bool isValid = (request.GroupAudioFile != null) || (hasOldAudio && !request.DeleteAudio);
+                var finalHasAudio = request.GroupAudioFile != null
+                                         || (!request.DeleteAudio && group.Media.Any(m => m.MediaType == "audio"))
+                                         || !string.IsNullOrEmpty(request.AudioUrl);
+
+                bool isValid = (request.GroupAudioFile != null) || (finalHasAudio && !request.DeleteAudio);
 
                 if (!isValid)
                 {
@@ -226,7 +230,6 @@ namespace App.Application.Questions.Commands
             public bool ShouldUploadAudio { get; set; }
             public IFormFile? AudioFileToUpload { get; set; }
             public string? OldAudioPublicId { get; set; }
-
             public bool ShouldDeleteImage { get; set; }
             public bool ShouldUploadImage { get; set; }
             public IFormFile? ImageFileToUpload { get; set; }
@@ -321,8 +324,7 @@ namespace App.Application.Questions.Commands
         {
             group.CategoryId = request.CategoryId;
             group.Content = request.GroupContent;
-            group.Transcript = request.Transcript;
-            group.MediaJson = request.MediaJson;
+            group.Explanation = request.Explanation;
             group.DifficultyId = request.DifficultyId;
             group.IsActive = request.IsActive;
             group.UpdatedAt = DateTime.UtcNow;

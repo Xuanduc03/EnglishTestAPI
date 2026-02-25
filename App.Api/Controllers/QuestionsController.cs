@@ -60,57 +60,31 @@ namespace App.Api.Controllers
         public async Task<IActionResult> CreateQuestionGroup([FromForm] CreateQuestionGroupCommand command)
         {
 
-            try
-            {
-                var result = await _mediator.Send(command);
-                return Ok(new { success = true, data = result, message = "Tạo câu hỏi nhóm thành công" });
-            }
-            catch (Exception ex)
-            {
-                // Log ex
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
+
+            var result = await _mediator.Send(command);
+            return Ok(new { success = true, data = result, message = "Tạo câu hỏi nhóm thành công" });
+
         }
 
 
         [HttpPut("groups/{id}")]
         public async Task<IActionResult> UpdateQuestionGroup(Guid id, [FromForm] UpdateQuestionGroupCommand command)
         {
-            try
-            {
-                command.Id = id;
 
-                var result = await _mediator.Send(command);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = ex.Message,
-                });
-            }
+            command.Id = id;
+            var result = await _mediator.Send(command);
+            return Ok(result);
+
 
         }
 
         [HttpPost("singles")]
         public async Task<IActionResult> CreateSingleQuestion([FromForm] CreateSingleQuestionCommand command)
         {
-            try
-            {
-                var result = await _mediator.Send(command);
 
-                return Ok(new { sucess = true, data = result, message = "Tạo câu hỏi đơn thành công" });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = ex.Message,
-                });
-            }
+            var result = await _mediator.Send(command);
+            return Ok(new { sucess = true, data = result, message = "Tạo câu hỏi đơn thành công" });
+
         }
 
         [HttpPut("singles/{id}")]
@@ -118,17 +92,9 @@ namespace App.Api.Controllers
             Guid id,
             [FromForm] UpdateSingleQuestionCommand command)
         {
-
-            try
-            {
-                command.Id = id; // Gán lại ID cho chắc
-                var updatedId = await _mediator.Send(command);
-                return Ok(updatedId);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
+            command.Id = id; // Gán lại ID cho chắc
+            var updatedId = await _mediator.Send(command);
+            return Ok(updatedId);
         }
 
 
@@ -173,31 +139,21 @@ namespace App.Api.Controllers
             [FromForm] ImportQuestionExcelCommand request,
             CancellationToken cancellationToken)
         {
-            try
+
+            if (request.File == null || request.File.Length == 0)
             {
-                if (request.File == null || request.File.Length == 0)
+                return BadRequest("File ZIP không hợp lệ");
+            }
+
+            var result = await _mediator.Send(
+                new ImportQuestionExcelCommand
                 {
-                    return BadRequest("File ZIP không hợp lệ");
-                }
+                    File = request.File
+                },
+                cancellationToken
+            );
 
-                var result = await _mediator.Send(
-                    new ImportQuestionExcelCommand
-                    {
-                        File = request.File
-                    },
-                    cancellationToken
-                );
-
-                return Ok(result);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "Lỗi server: " + ex.Message });
-            }
+            return Ok(result);
         }
     }
 }

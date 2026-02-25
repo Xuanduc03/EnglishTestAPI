@@ -24,48 +24,33 @@ namespace App.Api.Controllers
 
         // Api : Lấy toàn bộ câu hỏi
         [HttpGet("")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetList([FromQuery] GetExamQuery query)
         {
-            try
+
+            var result = await _mediator.Send(query);
+            return Ok(new
             {
-                var result = await _mediator.Send(query);
-                return Ok(new
-                {
-                    success = true,
-                    data = result
-                });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+                success = true,
+                data = result
+            });
         }
 
         // GET : Lấy đề thi chi tiết
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            try
-            {
-                var query = new GetExamDetailQuery(id);
-                var result = await _mediator.Send(query);
 
-                return Ok(new
-                {
-                    success = true,
-                    data = result,
-                    message = "Lấy thông tin người đề thành công"
-                });
-            }
+            var query = new GetExamDetailQuery(id);
+            var result = await _mediator.Send(query);
 
-            catch (Exception ex)
+            return Ok(new
             {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = ex.Message
-                });
-            }
+                success = true,
+                data = result,
+                message = "Lấy thông tin người đề thành công"
+            });
+
         }
 
 
@@ -77,20 +62,11 @@ namespace App.Api.Controllers
         public async Task<ActionResult> CreateExam(
             [FromBody] CreateExamCommand command)
         {
-            try
             {
                 var result = await _mediator.Send(command);
                 return Ok(new { success = true, data = result });
+
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = ex.Message
-                });
-            }
-           
         }
 
         // ============================================
@@ -266,5 +242,38 @@ namespace App.Api.Controllers
         }
 
 
+
+        // POST /api/exams/{examId}/publish
+        [HttpPost("{examId:guid}/publish")]
+        public async Task<IActionResult> Publish(Guid examId)
+        {
+            await _mediator.Send(new PublishExamCommand { ExamId = examId });
+            return Ok(new { success = true, message = "Xuất bản đề thi thành công" });
+        }
+
+        // PATCH /api/exams/{examId}/status
+        [HttpPatch("{examId:guid}/status")]
+        public async Task<IActionResult> ChangeStatus(
+            Guid examId,
+            [FromBody] ChangeExamStatusCommand command)
+        {
+            command.ExamId = examId;
+            await _mediator.Send(command);
+            return Ok(new { success = true, message = "Cập nhật trạng thái thành công" });
+        }
+
+
+
+        // Get all exam full test
+        [HttpGet("full-tests")]
+        [AllowAnonymous]
+        public async Task<ActionResult<List<ExamSummaryDto>>> GetFullTests()
+        {
+            var query = new GetFullTestsQuery();
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
     }
 }
+                                                          

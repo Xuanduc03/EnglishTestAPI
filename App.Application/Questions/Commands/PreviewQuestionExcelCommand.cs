@@ -90,13 +90,10 @@ namespace App.Application.Questions.Commands
                 .ToListAsync(cancellationToken);
 
             var existingGroups = await _context.QuestionGroups
-                .AsNoTracking()
-                .Include(g => g.Questions)
-                    .ThenInclude(q => q.Answers)
-                .Where(g => g.IsActive)
-                .OrderByDescending(g => g.CreatedAt)
-                .Take(500)
-                .ToListAsync(cancellationToken);
+                     .AsNoTracking()
+                     .Where(g => g.IsActive)
+                     .Select(g => new QuestionGroupsDto { Id = g.Id, CategoryId = g.CategoryId, Content = g.Content })
+                     .ToListAsync(cancellationToken);
 
 
             var categories = await _context.Categories
@@ -111,12 +108,12 @@ namespace App.Application.Questions.Commands
             };
 
 
-
             var parseContext = new ExcelZipParseContext
             {
                 Categories = categories,
                 ExistingQuestions = existingQuestions,
                 ExistingAnswerSets = existingAnswerSets,
+                ExistingGroups = existingGroups,
                 ValidateAgainstDatabase = true
             };
 

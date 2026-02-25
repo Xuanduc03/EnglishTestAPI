@@ -1,36 +1,25 @@
 ﻿using App.Application.DTOs;
 using App.Application.Interfaces;
 using App.Domain.Entities;
-using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace App.Application.Practices.Queries
 {
-    /// <summary>
-    /// Query: Lấy câu hỏi practice theo Part (Category)
-    /// Use case: User chọn Part 1, Part 2... để luyện tập
-    /// </summary>
     public record GetPracticeByPartQuery(
-        List<Guid> CategoryIds,        // Part IDs (có thể chọn nhiều part)
-        int QuestionsPerPart = 10,     // Số câu mỗi part
-        bool RandomOrder = true         // Random thứ tự câu hỏi
+        List<Guid> CategoryIds,
+        int QuestionsPerPart = 10,
+        bool RandomOrder = true
     ) : IRequest<PracticeSessionDto>;
 
     public class GetPracticeByPartQueryHandler : IRequestHandler<GetPracticeByPartQuery, PracticeSessionDto>
     {
         private readonly IAppDbContext _context;
-        private readonly IMapper _mapper;
 
-        public GetPracticeByPartQueryHandler(IAppDbContext context, IMapper mapper)
+        // FIX 1: Bỏ IMapper
+        public GetPracticeByPartQueryHandler(IAppDbContext context)
         {
             _context = context;
-            _mapper = mapper;
         }
 
         public async Task<PracticeSessionDto> Handle(GetPracticeByPartQuery request, CancellationToken cancellationToken)
@@ -40,13 +29,11 @@ namespace App.Application.Practices.Queries
                 SessionId = Guid.NewGuid(),
                 Title = "Practice Session",
                 TotalQuestions = 0,
-                Duration = CalculateDuration(request.CategoryIds, request.QuestionsPerPart),
                 Parts = new List<PracticePartDto>()
             };
 
-            int globalQuestionNumber = 1; // Question number tổng thể (1-200)
+            int globalQuestionNumber = 1;
 
-            // Duyệt qua từng Part được chọn
             foreach (var categoryId in request.CategoryIds)
             {
                 var category = await _context.Categories
@@ -55,268 +42,163 @@ namespace App.Application.Practices.Queries
 
                 if (category == null) continue;
 
-                // Tạo PartDto
-                var partDto = new PracticePartDto
+                var questions = await GetQuestionsByPart(
+                    categoryId, request.QuestionsPerPart, request.RandomOrder, cancellationToken);
+
+                // FIX 2: Gọi MapQuestions thay vì ProcessQuestions (không tồn tại)
+                var questionDtos = MapQuestions(questions, globalQuestionNumber);
+
+                session.Parts.Add(new PracticePartDto
                 {
                     PartId = category.Id,
                     PartName = category.Name,
                     PartNumber = ExtractPartNumber(category.Name),
                     PartDescription = category.Description,
-                    Questions = new List<PracticeQuestionDto>()
-                };
+                    Questions = questionDtos
+                });
 
-                // ============================================
-                // LẤY CÂU HỎI THEO PART
-                // ============================================
-
-                var questions = await GetQuestionsByPart(
-                    categoryId,
-                    request.QuestionsPerPart,
-                    request.RandomOrder,
-                    cancellationToken
-                );
-
-                // ============================================
-                // XỬ LÝ CÂU HỎI (SINGLE VS GROUP)
-                // ============================================
-
-                var processedQuestions = await ProcessQuestions(
-                    questions,
-                    globalQuestionNumber,
-                    cancellationToken
-                );
-
-                partDto.Questions = processedQuestions;
-                session.Parts.Add(partDto);
-
-                // Update global question number
-                globalQuestionNumber += processedQuestions.Count;
-                session.TotalQuestions += processedQuestions.Count;
+                globalQuestionNumber += questionDtos.Count;
+                session.TotalQuestions += questionDtos.Count;
             }
+
+            session.Duration = CalculateDuration(session.Parts);
 
             return session;
         }
 
-        // ============================================
-        // HELPER: LẤY CÂU HỎI THEO PART
-        // ============================================
-
         private async Task<List<Question>> GetQuestionsByPart(
-            Guid categoryId,
-            int count,
-            bool randomOrder,
-            CancellationToken cancellationToken)
+            Guid categoryId, int count, bool randomOrder, CancellationToken cancellationToken)
         {
-            var query = _context.Questions
+            var all = await _context.Questions
                 .AsNoTracking()
-                .Where(q => q.CategoryId == categoryId)
+                .Where(q => q.CategoryId == categoryId && !q.IsDeleted)
                 .Include(q => q.Media)
                 .Include(q => q.Answers)
-                .Include(q => q.Group)
-                    .ThenInclude(g => g.Media)
-                .Include(q => q.Category)
-                .Include(q => q.Difficulty);
+                .Include(q => q.Group).ThenInclude(g => g.Media)
+                .ToListAsync(cancellationToken);
 
-            // ============================================
-            // XỬ LÝ GROUP QUESTIONS
-            // ============================================
+            var singles = all.Where(q => q.GroupId == null).ToList();
+            var grouped = all.Where(q => q.GroupId != null).ToList();
 
-            // Lấy tất cả questions (bao gồm cả trong group)
-            var allQuestions = await query.ToListAsync(cancellationToken);
-
-            // Phân loại: Single vs Group
-            var singleQuestions = allQuestions.Where(q => q.GroupId == null).ToList();
-            var groupQuestions = allQuestions.Where(q => q.GroupId != null).ToList();
-
-            var selectedQuestions = new List<Question>();
-
-            if (groupQuestions.Any())
+            if (!grouped.Any())
             {
-                // ============================================
-                // PART CÓ GROUP (Part 3, 4, 6, 7)
-                // ============================================
-
-                // Lấy danh sách groups
-                var groupIds = groupQuestions.Select(q => q.GroupId!.Value).Distinct().ToList();
-
-                if (randomOrder)
-                {
-                    // Random groups
-                    groupIds = groupIds.OrderBy(_ => Guid.NewGuid()).ToList();
-                }
-
-                // Tính số group cần lấy
-                int questionsPerGroup = GetQuestionsPerGroup(categoryId);
-                int groupsNeeded = (int)Math.Ceiling((double)count / questionsPerGroup);
-
-                // Lấy questions từ các groups đã chọn
-                var selectedGroupIds = groupIds.Take(groupsNeeded).ToList();
-                selectedQuestions = groupQuestions
-                    .Where(q => selectedGroupIds.Contains(q.GroupId!.Value))
-                    .OrderBy(q => q.GroupId)
-                    .Take(count)
-                    .ToList();
-            }
-            else
-            {
-                // ============================================
-                // PART KHÔNG CÓ GROUP (Part 1, 2, 5)
-                // ============================================
-
-                if (randomOrder)
-                {
-                    selectedQuestions = singleQuestions
-                        .OrderBy(_ => Guid.NewGuid())
-                        .Take(count)
-                        .ToList();
-                }
-                else
-                {
-                    selectedQuestions = singleQuestions
-                        .Take(count)
-                        .ToList();
-                }
+                return randomOrder
+                    ? singles.OrderBy(_ => Guid.NewGuid()).Take(count).ToList()
+                    : singles.Take(count).ToList();
             }
 
-            return selectedQuestions;
+            var groupIds = grouped.Select(q => q.GroupId!.Value).Distinct().ToList();
+            if (randomOrder) groupIds = groupIds.OrderBy(_ => Guid.NewGuid()).ToList();
+
+            int groupsNeeded = (int)Math.Ceiling((double)count / 3.0);
+            var selectedGroupIds = groupIds.Take(groupsNeeded).ToHashSet();
+
+            return grouped
+                .Where(q => selectedGroupIds.Contains(q.GroupId!.Value))
+                .OrderBy(q => q.GroupId)
+                .ThenBy(q => q.Id)
+                .Take(count)
+                .ToList();
         }
 
-        // ============================================
-        // HELPER: XỬ LÝ VÀ MAP QUESTIONS
-        // ============================================
-
-        private async Task<List<PracticeQuestionDto>> ProcessQuestions(
-            List<Question> questions,
-            int startQuestionNumber,
-            CancellationToken cancellationToken)
+        private static List<PracticeQuestionDto> MapQuestions(List<Question> questions, int startNumber)
         {
             var result = new List<PracticeQuestionDto>();
-            var processedGroups = new HashSet<Guid>();
-            int currentQuestionNumber = startQuestionNumber;
+            var orderIndex = 1;
 
-            foreach (var question in questions)
+            var groupMeta = questions
+                .Where(q => q.GroupId.HasValue)
+                .GroupBy(q => q.GroupId!.Value)
+                .ToDictionary(g => g.Key, g => g.OrderBy(q => q.CreatedAt).ToList());
+
+            foreach (var q in questions)
             {
-                var dto = _mapper.Map<PracticeQuestionDto>(question);
-                dto.QuestionNumber = currentQuestionNumber;
-                dto.OrderIndex = currentQuestionNumber - startQuestionNumber + 1;
-
-                // ============================================
-                // XỬ LÝ GROUP QUESTION
-                // ============================================
-
-                if (question.GroupId.HasValue && !processedGroups.Contains(question.GroupId.Value))
+                var dto = new PracticeQuestionDto
                 {
-                    // Load group info (chỉ load 1 lần cho mỗi group)
-                    var group = question.Group;
+                    QuestionId = q.Id,
+                    OrderIndex = orderIndex,
+                    QuestionNumber = startNumber + orderIndex - 1,
+                    Content = q.Content,
+                    Explanation = q.Explanation,
+                    GroupId = q.GroupId,
+                    Media = q.Media.OrderBy(m => m.OrderIndex).Select(MapMedia).ToList(),
+                    HasAudio = q.Media.Any(m => IsAudio(m.MediaType, m.Url)),
+                    HasImage = q.Media.Any(m => IsImage(m.MediaType, m.Url)),
+                    AudioUrl = q.Media.FirstOrDefault(m => IsAudio(m.MediaType, m.Url))?.Url,
+                    ImageUrl = q.Media.FirstOrDefault(m => IsImage(m.MediaType, m.Url))?.Url,
+                    Answers = q.Answers.OrderBy(a => a.OrderIndex).Select(MapAnswer).ToList(),
+                    SelectedAnswerId = null,
+                    IsCorrect = null,
+                    IsMarkedForReview = false,
+                };
 
-                    if (group != null)
-                    {
-                        dto.GroupContent = group.Content;
-                        dto.GroupMedia = _mapper.Map<List<PracticeMediaDto>>(group.Media);
-
-                        // Đếm số câu trong group này
-                        var questionsInGroup = questions
-                            .Where(q => q.GroupId == question.GroupId)
-                            .ToList();
-
-                        dto.TotalQuestionsInGroup = questionsInGroup.Count;
-
-                       
-                        processedGroups.Add(question.GroupId.Value);
-                    }
-                }
-
-                // Tính vị trí câu hỏi trong group
-                if (question.GroupId.HasValue)
+                if (q.GroupId.HasValue && q.Group != null && groupMeta.TryGetValue(q.GroupId.Value, out var siblings))
                 {
-                    var questionsInGroup = questions
-                        .Where(q => q.GroupId == question.GroupId)
-                        .ToList();
-
-                    dto.QuestionIndexInGroup = questionsInGroup.IndexOf(question) + 1;
+                    dto.GroupContent = q.Group.Content;
+                    dto.TotalQuestionsInGroup = siblings.Count;
+                    dto.QuestionIndexInGroup = siblings.FindIndex(x => x.Id == q.Id) + 1;
+                    dto.GroupMedia = q.Group.Media.OrderBy(m => m.OrderIndex).Select(MapGroupMedia).ToList();
                 }
 
                 result.Add(dto);
-                currentQuestionNumber++;
+                orderIndex++;
             }
 
             return result;
         }
 
-        // ============================================
-        // HELPER: TÍNH THỜI GIAN
-        // ============================================
-
-        private int CalculateDuration(List<Guid> categoryIds, int questionsPerPart)
+        private static PracticeMediaDto MapMedia(QuestionMedia m) => new()
         {
-            // Thời gian mỗi part TOEIC (phút/câu)
-            var timePerQuestion = new Dictionary<int, double>
-            {
-                { 1, 0.5 },   // Part 1: 30s/câu
-                { 2, 0.5 },   // Part 2: 30s/câu  
-                { 3, 1.5 },   // Part 3: 1.5 phút/câu (có audio)
-                { 4, 1.5 },   // Part 4: 1.5 phút/câu (có audio)
-                { 5, 0.5 },   // Part 5: 30s/câu
-                { 6, 1.0 },   // Part 6: 1 phút/câu
-                { 7, 1.5 }    // Part 7: 1.5 phút/câu
-            };
+            Id = m.Id,
+            Url = m.Url,
+            Type = ResolveMediaType(m.MediaType, m.Url)
+        };
 
-            int totalMinutes = 0;
-            foreach (var categoryId in categoryIds)
-            {
-                var partNumber = ExtractPartNumberFromId(categoryId);
-                if (timePerQuestion.ContainsKey(partNumber))
-                {
-                    totalMinutes += (int)(questionsPerPart * timePerQuestion[partNumber]);
-                }
-            }
+        private static PracticeMediaDto MapGroupMedia(QuestionGroupMedia m) => new()
+        {
+            Id = m.Id,
+            Url = m.Url,
+            Type = ResolveMediaType(m.MediaType, m.Url)
+        };
 
-            return totalMinutes > 0 ? totalMinutes : questionsPerPart; // Default 1 phút/câu
+        private static PracticeAnswerDto MapAnswer(Answer a) => new()
+        {
+            Id = a.Id,
+            Content = a.Content,
+            OrderIndex = a.OrderIndex,
+            IsCorrect = a.IsCorrect,
+            Media = new List<PracticeMediaDto>()
+        };
+
+        private static string ResolveMediaType(string? mediaType, string? url) =>
+            !string.IsNullOrWhiteSpace(mediaType) ? mediaType.ToLower() : GetTypeFromUrl(url);
+
+        private static bool IsAudio(string? t, string? u) => ResolveMediaType(t, u) == "audio";
+        private static bool IsImage(string? t, string? u) => ResolveMediaType(t, u) == "image";
+
+        private static string GetTypeFromUrl(string? url)
+        {
+            if (string.IsNullOrEmpty(url)) return "unknown";
+            var u = url.ToLower();
+            if (u.EndsWith(".mp3") || u.EndsWith(".wav") || u.EndsWith(".ogg") || u.EndsWith(".m4a")) return "audio";
+            if (u.EndsWith(".jpg") || u.EndsWith(".jpeg") || u.EndsWith(".png") || u.EndsWith(".webp")) return "image";
+            if (u.EndsWith(".mp4") || u.EndsWith(".webm")) return "video";
+            if (u.Contains("/image/upload/")) return "image";
+            return "unknown";
         }
 
-        // ============================================
-        // HELPER: SỐ CÂU MỖI GROUP
-        // ============================================
-
-        private int GetQuestionsPerGroup(Guid categoryId)
-        {
-            var partNumber = ExtractPartNumberFromId(categoryId);
-
-            return partNumber switch
-            {
-                3 => 3,  // Part 3: 3 câu/conversation
-                4 => 3,  // Part 4: 3 câu/talk
-                6 => 4,  // Part 6: 4 câu/passage
-                7 => 3,  // Part 7: Average 3 câu/passage (có thể 2-5)
-                _ => 1
-            };
-        }
-
-        // ============================================
-        // HELPER: EXTRACT PART NUMBER
-        // ============================================
-
-        private int ExtractPartNumber(string partName)
+        // FIX 4: Bỏ ExtractPartNumberFromId (sync DB call — xấu), chỉ giữ static version
+        private static int ExtractPartNumber(string partName)
         {
             if (string.IsNullOrEmpty(partName)) return 0;
-
             var parts = partName.Split(' ');
-            if (parts.Length >= 2 && int.TryParse(parts[1], out int number))
-            {
-                return number;
-            }
-
-            return 0;
+            return parts.Length >= 2 && int.TryParse(parts[1], out int n) ? n : 0;
         }
 
-        private int ExtractPartNumberFromId(Guid categoryId)
+        private static int CalculateDuration(List<PracticePartDto> parts)
         {
-            var category = _context.Categories
-                .AsNoTracking()
-                .FirstOrDefault(c => c.Id == categoryId);
-
-            return category != null ? ExtractPartNumber(category.Name) : 0;
+            var t = new Dictionary<int, double> { { 1, .5 }, { 2, .5 }, { 3, 1.5 }, { 4, 1.5 }, { 5, .5 }, { 6, 1.0 }, { 7, 1.5 } };
+            return parts.Sum(p => t.TryGetValue(p.PartNumber, out var v) ? (int)(p.Questions.Count * v) : p.Questions.Count);
         }
     }
-
 }

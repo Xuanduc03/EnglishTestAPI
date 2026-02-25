@@ -27,10 +27,7 @@ namespace App.Domain.Entities
         public DateTime? SubmittedAt { get; set; }
         public int? TimeLimitSeconds { get; set; }  // NULL = no time limit
 
-        [NotMapped]
-        public int? ActualTimeSeconds => SubmittedAt.HasValue
-            ? (int)(SubmittedAt.Value - StartedAt).TotalSeconds
-            : null;
+        public int? ActualTimeSeconds { get; set; }
 
         // ============================================
         // STATUS

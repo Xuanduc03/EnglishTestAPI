@@ -33,7 +33,6 @@ namespace App.Application.Students.Commands
                     Gender = dto.Gender,
                     DateOfBirth = dto.DateOfBirth,
                     SBD = dto.SBD,
-                    School = dto.School,
                     UserId = dto.UserId,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,

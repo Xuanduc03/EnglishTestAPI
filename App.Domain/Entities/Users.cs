@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿
 
 namespace App.Domain.Entities
 {
@@ -30,6 +26,7 @@ namespace App.Domain.Entities
 
         //navigation 
         public virtual Student? StudentProfile { get; set; }
+        public virtual ICollection<ExamAttempt> ExamAttempts { get; set; }
         public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
         public ICollection<RefreshToken> RefreshTokens { get; set; }
 

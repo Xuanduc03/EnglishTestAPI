@@ -29,6 +29,6 @@ namespace App.Domain.Entities
         public string Status { get; set; }
 
         // Chi tiết từng câu trả lời
-        public virtual ICollection<StudentAnswer> StudentAnswers { get; set; }
+        //public virtual ICollection<StudentAnswer> StudentAnswers { get; set; }
     }
 }

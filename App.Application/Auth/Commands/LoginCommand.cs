@@ -35,96 +35,91 @@ namespace App.Application.Auth.Commands
 
         public async Task<LoginResultDto> Handle(LoginUserCommand request, CancellationToken cancellationToken)
         {
-           try
+
+            // validate input
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
-                // validate input
-                if(string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
-                {
-                    throw new UnauthorizedAccessException("Thông tin đăng nhập ko chính xác");
-                }
-
-                // get user 
-                var user = await _dbContext.Users
-                    .AsNoTracking()
-                   .Where(u => u.Email.ToLower() == request.Email.ToLower())
-                    .Select(u => new UserAuthInfoDto
-                    {
-                        Id = u.Id,
-                        Email = u.Email,
-                        Fullname = u.Fullname,
-                        PasswordHash = u.Password,
-                        IsActive = u.IsActive,
-                        FailedLoginAttempts = u.FailedLoginAttempts,
-                        LockoutEnd = u.LockoutEnd,
-                        Roles = u.UserRoles.Select(ur => ur.Role.Name).ToList(),
-                    })
-                    .FirstOrDefaultAsync(cancellationToken);
-
-                if (user == null)
-                {
-                    // Delay để chống timing attack
-                    await Task.Delay(Random.Shared.Next(100, 300), cancellationToken);
-                    throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng");
-                }
-
-                // 4. Check account status
-                if (!user.IsActive)
-                {
-                    throw new UnauthorizedAccessException("Tài khoản đã bị vô hiệu hóa");
-                }
-
-                // Check khóa tài khoản (Sử dụng LockoutEnd)
-                if (user.LockoutEnd.HasValue && user.LockoutEnd > DateTime.UtcNow)
-                {
-                    var remainingMinutes = Math.Ceiling((user.LockoutEnd.Value - DateTime.UtcNow).TotalMinutes);
-                    throw new UnauthorizedAccessException($"Tài khoản bị khóa. Vui lòng thử lại sau {remainingMinutes} phút.");
-                }
-
-                // 6. Verify password
-                bool isValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
-
-                if (!isValid)
-                {
-                    await HandleFailedLogin(user.Id, cancellationToken);
-                    // Delay để chống timing attack
-                    await Task.Delay(Random.Shared.Next(100, 300), cancellationToken);
-                    throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng");
-                }
-
-                // 7. Reset failed attempts on successful login
-                await ResetFailedLoginAttempts(user.Id, cancellationToken);
-
-                // 8. Generate tokens
-                var accessToken = GenerateAccessToken(user);
-                var refreshToken = GenerateRefreshToken();
-                var expires = DateTime.UtcNow.AddHours(TOKEN_EXPIRY_HOURS);
-
-                // 9. Save refresh token
-                await SaveRefreshToken(user.Id, refreshToken, cancellationToken);
-
-                // 10. Update last login
-                var userEntity = await _dbContext.Users.FindAsync(new object[] { user.Id }, cancellationToken);
-                if (userEntity != null)
-                {
-                    userEntity.LastLogin = DateTime.UtcNow;
-                    await _dbContext.SaveChangesAsync(cancellationToken);
-                }
-
-                return new LoginResultDto
-                {
-                    UserId = user.Id,
-                    Fullname = user.Fullname,
-                    Email = user.Email,
-                    Roles = user.Roles,
-                    Token = accessToken,
-                    RefreshToken = refreshToken,
-                    ExpiredAt = expires
-                };
+                throw new UnauthorizedAccessException("Thông tin đăng nhập ko chính xác");
             }
-            catch (Exception ex)
+
+            // get user 
+            var user = await _dbContext.Users
+                .AsNoTracking()
+               .Where(u => u.Email.ToLower() == request.Email.ToLower())
+                .Select(u => new UserAuthInfoDto
+                {
+                    Id = u.Id,
+                    Email = u.Email,
+                    Fullname = u.Fullname,
+                    PasswordHash = u.Password,
+                    IsActive = u.IsActive,
+                    FailedLoginAttempts = u.FailedLoginAttempts,
+                    LockoutEnd = u.LockoutEnd,
+                    Roles = u.UserRoles.Select(ur => ur.Role.Name).ToList(),
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (user == null)
             {
-                throw;
+                // Delay để chống timing attack
+                await Task.Delay(Random.Shared.Next(100, 300), cancellationToken);
+                throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng");
             }
+
+            // 4. Check account status
+            if (!user.IsActive)
+            {
+                throw new UnauthorizedAccessException("Tài khoản đã bị vô hiệu hóa");
+            }
+
+            // Check khóa tài khoản (Sử dụng LockoutEnd)
+            if (user.LockoutEnd.HasValue && user.LockoutEnd > DateTime.UtcNow)
+            {
+                var remainingMinutes = Math.Ceiling((user.LockoutEnd.Value - DateTime.UtcNow).TotalMinutes);
+                throw new UnauthorizedAccessException($"Tài khoản bị khóa. Vui lòng thử lại sau {remainingMinutes} phút.");
+            }
+
+            // 6. Verify password
+            bool isValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
+
+            if (!isValid)
+            {
+                await HandleFailedLogin(user.Id, cancellationToken);
+                // Delay để chống timing attack
+                await Task.Delay(Random.Shared.Next(100, 300), cancellationToken);
+                throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng");
+            }
+
+            // 7. Reset failed attempts on successful login
+            await ResetFailedLoginAttempts(user.Id, cancellationToken);
+
+            // 8. Generate tokens
+            var accessToken = GenerateAccessToken(user);
+            var refreshToken = GenerateRefreshToken();
+            var expires = DateTime.UtcNow.AddHours(TOKEN_EXPIRY_HOURS);
+
+            // 9. Save refresh token
+            await SaveRefreshToken(user.Id, refreshToken, cancellationToken);
+
+            // 10. Update last login
+            var userEntity = await _dbContext.Users.FindAsync(new object[] { user.Id }, cancellationToken);
+            if (userEntity != null)
+            {
+                userEntity.LastLogin = DateTime.UtcNow;
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            return new LoginResultDto
+            {
+                UserId = user.Id,
+                Fullname = user.Fullname,
+                Email = user.Email,
+                Roles = user.Roles,
+                Token = accessToken,
+                RefreshToken = refreshToken,
+                ExpiredAt = expires
+            };
+
         }
 
         // method create jwt token
@@ -132,7 +127,7 @@ namespace App.Application.Auth.Commands
         {
             //validate JWT configuration
             var jwtKey = _config["Jwt:Key"];
-            if(string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+            if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
             {
                 throw new InvalidOperationException("Jwt ít nhất 32 ký tự");
             }
@@ -146,7 +141,7 @@ namespace App.Application.Auth.Commands
             };
 
             // add roles 
-            foreach(var role in user.Roles)
+            foreach (var role in user.Roles)
             {
                 claims.Add(new Claim(ClaimTypes.Role, role.ToString()));
             }
@@ -163,7 +158,7 @@ namespace App.Application.Auth.Commands
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
-        } 
+        }
 
         private string GenerateRefreshToken()
         {

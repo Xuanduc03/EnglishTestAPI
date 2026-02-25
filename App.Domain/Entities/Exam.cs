@@ -15,6 +15,9 @@ namespace App.Domain.Entities
         // Thời gian & điểm số
         public int Duration { get; set; }
         public decimal TotalScore { get; set; }
+        // audit release exam 
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
 
         // ========== PHÂN LOẠI ĐỀ THI ==========
 
@@ -48,6 +51,7 @@ namespace App.Domain.Entities
         public bool IsActive { get; set; } = true;
 
         // Relations
+        public virtual ICollection<ExamAttempt> Attempts { get; set; } // 1 bài thi có nhiều lượt thi
         public virtual ICollection<ExamSection> Sections { get; set; }
         public virtual ICollection<ScoreTable> ScoreTables { get; set; }
     }

@@ -52,7 +52,12 @@ namespace App.Application.DTOs
         // Nếu là group question (Part 3,4,6,7)
         public Guid? GroupId { get; set; }
         public string? GroupContent { get; set; } // Passage/Conversation cho Part 6,7
+        public string? Explanation { get; set; }
         public List<PracticeMediaDto>? GroupMedia { get; set; } // Audio cho Part 3,4
+        public bool HasAudio { get; set; }
+        public bool HasImage { get; set; }
+        public string? AudioUrl { get; set; }
+        public string? ImageUrl { get; set; }
 
         // ✅ THÊM: Group metadata
         public int? TotalQuestionsInGroup { get; set; } // 3 cho P3/P4, 4 cho P6, 2-5 cho P7
@@ -89,9 +94,8 @@ namespace App.Application.DTOs
     {
         public Guid Id { get; set; }
         public string Url { get; set; }
-        public string Type { get; set; } // "image", "audio"
-        public int OrderIndex { get; set; }
-        public string? Description { get; set; } // ✅ THÊM: Alt text cho accessibility
+        public string Type { get; set; }
+        public string? Description { get; set; }
     }
 
     // 6. Đáp án
@@ -100,7 +104,7 @@ namespace App.Application.DTOs
         public Guid Id { get; set; }
         public string Content { get; set; }
         public int OrderIndex { get; set; } // A=0, B=1, C=2, D=3
-        public char AnswerLabel { get; set; } // ✅ THÊM: 'A', 'B', 'C', 'D'
+        public bool IsCorrect { get; set; }
         public List<PracticeMediaDto> Media { get; set; } = new(); // Nếu answer có audio (Part 2)
     }
 
@@ -139,58 +143,17 @@ namespace App.Application.DTOs
         public double AverageTimePerQuestion { get; set; } // ✅ THÊM: seconds
     }
 
-    // ==================== AUTOMAPPER ====================
-
-    public class PracticeProfile : Profile
+    // ==================== DTO trạng thái của practice đang làm ====================
+  
+    public class InProgressPracticeDto
     {
-        public PracticeProfile()
-        {
-            // Question -> PracticeQuestionDto
-            CreateMap<Question, PracticeQuestionDto>()
-                .ForMember(d => d.Content, opt => opt.MapFrom(s => s.Content))
-                .ForMember(d => d.Media, opt => opt.MapFrom(s => s.Media))
-                .ForMember(d => d.Answers, opt => opt.MapFrom(s => s.Answers))
-                .ForMember(d => d.GroupId, opt => opt.MapFrom(s => s.GroupId))
-                .ForMember(d => d.QuestionNumber, opt => opt.Ignore()) // Sẽ set manual
-                .ForMember(d => d.QuestionIndexInGroup, opt => opt.Ignore()) // Sẽ set manual
-                .ForMember(d => d.TotalQuestionsInGroup, opt => opt.Ignore()); // Sẽ set manual
-
-            // QuestionGroup -> Group info
-            CreateMap<QuestionGroup, PracticeQuestionDto>()
-                .ForMember(d => d.GroupContent, opt => opt.MapFrom(s => s.Content))
-                .ForMember(d => d.GroupMedia, opt => opt.MapFrom(s => s.Media))
-                .ForMember(d => d.QuestionId, opt => opt.Ignore()); // Sẽ map riêng
-
-
-
-            // Answer -> PracticeAnswerDto
-            CreateMap<Answer, PracticeAnswerDto>()
-                .ForMember(d => d.AnswerLabel, opt => opt.MapFrom((src, dest, _, context) =>
-                {
-                    // Convert OrderIndex to A, B, C, D
-                    return (char)('A' + src.OrderIndex);
-                }));
-
-            // Category -> PracticePartDto
-            CreateMap<Category, PracticePartDto>()
-                .ForMember(d => d.PartId, opt => opt.MapFrom(s => s.Id))
-                .ForMember(d => d.PartName, opt => opt.MapFrom(s => s.Name))
-                .ForMember(d => d.PartNumber, opt => opt.MapFrom(s => ExtractPartNumber(s.Name)))
-                .ForMember(d => d.PartDescription, opt => opt.MapFrom(s => s.Description));
-        }
-
-        // Helper: Extract part number from "Part 1", "Part 2"
-        private static int ExtractPartNumber(string partName)
-        {
-            if (string.IsNullOrEmpty(partName)) return 0;
-
-            var parts = partName.Split(' ');
-            if (parts.Length >= 2 && int.TryParse(parts[1], out int number))
-            {
-                return number;
-            }
-
-            return 0;
-        }
+        public Guid AttemptId { get; set; }
+        public string Title { get; set; }
+        public string CategoryName { get; set; } // Tên category (Part 3 & 4, v.v.)
+        public double Progress { get; set; }      // % hoàn thành
+        public DateTime StartedAt { get; set; }
+        public DateTime LastUpdated { get; set; }
+        public int? TimeLimitSeconds { get; set; }
+        public int? ActualTimeSeconds { get; set; }
     }
 }

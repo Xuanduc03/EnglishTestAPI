@@ -6,12 +6,18 @@ using Microsoft.EntityFrameworkCore.Query;
 using System.Linq.Expressions;
 using App.Infrastructure.Shares;
 using App.Infrastructure.Persistence.Configurations;
+using App.Application.Services.Interface;
 
 namespace App.Infrastructure.Data
 {
     public class AppDbContext : BaseDbContext<AppDbContext>, IAppDbContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+        private readonly ICurrentUserService _currentUserService;
+        public AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUserService currentUserService) 
+            : base(options, currentUserService) 
+        { 
+            _currentUserService = currentUserService;
+        }
 
         public DbSet<User> Users { get; set; }
         public DbSet<Role> Roles { get; set; }
@@ -27,7 +33,6 @@ namespace App.Infrastructure.Data
         public DbSet<ExamSection> ExamSections { get; set; }
         public DbSet<ExamQuestion> ExamQuestions { get; set; }
         public DbSet<ScoreTable> ScoreTables { get; set; } 
-        public DbSet<ExamStructureItem> ExamStructures { get; set; }
 
         // --- KHỐI QUESTION BANK (Mới thêm) ---
         public DbSet<Question> Questions { get; set; }
@@ -39,13 +44,16 @@ namespace App.Infrastructure.Data
 
         // --- KHỐI KẾT QUẢ (Mới thêm) ---
         public DbSet<ExamResult> ExamResults { get; set; }
-        public DbSet<StudentAnswer> StudentAnswers { get; set; }
-
+        public DbSet<ExamAnswer> ExamAnswers { get; set; }
+        public DbSet<ExamAttempt> ExamAttempts { get; set; }
+        public DbSet<ExamSectionResult> ExamSectionResults { get; set; }
 
         // khối luyện thi 
         public DbSet<PracticeAttempt> PracticeAttempts { get; set; }
         public DbSet<PracticeAnswer> PracticeAnswers { get; set; }
         public DbSet<PracticePartResult> PracticePartResults { get; set; }
+
+        protected override Guid? GetCurrentUserId() => _currentUserService.UserId;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -108,6 +116,21 @@ namespace App.Infrastructure.Data
                 entity.HasIndex(p => p.Name).IsUnique();
 
                 entity.Property(p => p.CreatedAt);
+            });
+
+            modelBuilder.Entity<ExamAnswer>(entity =>
+            {
+                entity.ToTable("exam_answer");
+            });
+
+            modelBuilder.Entity<ExamAttempt>(entity =>
+            {
+                entity.ToTable("exam_attempt");
+            });
+
+            modelBuilder.Entity<ExamSectionResult>(entity =>
+            {
+                entity.ToTable("exam_section_result");
             });
 
             // ==============================
@@ -212,10 +235,7 @@ namespace App.Infrastructure.Data
             modelBuilder.Entity<ExamQuestion>(entity =>
             {
                 entity.ToTable("exam_questions");
-                // Khóa chính phức hợp (Composite Key) hoặc dùng Id riêng cũng được
-                // Ở đây bạn chưa kế thừa BaseEntity nên mình giả định bạn muốn dùng khóa phức hợp
-                // Nếu ExamQuestion có Id thì dùng entity.HasKey(e => e.Id);
-                entity.HasKey(e => new { e.ExamSectionId, e.QuestionId });
+                entity.HasKey(e => e.Id);
 
                 entity.HasOne(eq => eq.ExamSection)
                       .WithMany(es => es.ExamQuestions)
@@ -301,11 +321,6 @@ namespace App.Infrastructure.Data
                       .OnDelete(DeleteBehavior.Restrict); // <--- QUAN TRỌNG: Chặn lỗi tại đây
 
                 // 3. Quan hệ với StudentAnswers (Con của Result)
-                // Logic: Xóa bài thi (Result) thì xóa hết câu trả lời chi tiết.
-                entity.HasMany(r => r.StudentAnswers)
-                      .WithOne(sa => sa.ExamResult)
-                      .HasForeignKey(sa => sa.ExamResultId)
-                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<QuestionTag>(entity =>
@@ -343,12 +358,6 @@ namespace App.Infrastructure.Data
                       .OnDelete(DeleteBehavior.Cascade); // 🔥 Cascade là bắt buộc
             });
 
-            modelBuilder.Entity<StudentAnswer>(entity =>
-            {
-                entity.ToTable("student_answers");
-                entity.HasKey(e => new { e.ExamResultId, e.QuestionId });
-            });
-
             // 7. ScoreTable
             modelBuilder.Entity<ScoreTable>(entity => {
                 entity.ToTable("score_tables");
@@ -356,12 +365,19 @@ namespace App.Infrastructure.Data
                 entity.Property(e => e.ConversionJson).HasColumnType("longtext");
             });
 
+            modelBuilder.Entity<ScoreTable>(entity =>
+            {
+                entity.ToTable("score_tables");
 
+                entity.Property(e => e.ConversionJson)
+                      .HasColumnType("longtext");
+
+                entity.HasOne(s => s.Category)
+                      .WithMany()
+                      .HasForeignKey(s => s.CategoryId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
 
         }
-
-
-
-      
     }
 }

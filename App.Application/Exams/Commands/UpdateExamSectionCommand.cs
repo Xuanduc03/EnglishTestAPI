@@ -2,12 +2,7 @@
 using App.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace App.Application.Exams.Commands
 {
@@ -48,16 +43,33 @@ namespace App.Application.Exams.Commands
             if (section.Exam.Status != ExamStatus.Draft)
                 throw new Exception("Chỉ được sửa đề thi ở trạng thái Draft");
 
-            // === UPDATE FIELDS ===
+            // === UPDATE CATEGORY ===
             if (request.CategoryId.HasValue)
             {
+                var newCategoryId = request.CategoryId.Value;
+
                 var categoryExists = await _context.Categories
-                    .AnyAsync(x => x.Id == request.CategoryId);
+                    .AnyAsync(x => x.Id == newCategoryId, cancellationToken);
 
                 if (!categoryExists)
                     throw new ValidationException("Category không tồn tại");
 
-                section.CategoryId = request.CategoryId.Value;
+                // 🔥 CHECK DUPLICATE CATEGORY IN EXAM
+                if (newCategoryId != section.CategoryId)
+                {
+                    var duplicate = await _context.ExamSections
+                        .AnyAsync(x =>
+                            x.ExamId == section.ExamId &&
+                            x.CategoryId == newCategoryId &&
+                            x.Id != section.Id &&
+                            !x.IsDeleted,
+                            cancellationToken);
+
+                    if (duplicate)
+                        throw new ValidationException("Category này đã tồn tại trong đề thi");
+                }
+
+                section.CategoryId = newCategoryId;
             }
 
 

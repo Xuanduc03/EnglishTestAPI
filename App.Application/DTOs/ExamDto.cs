@@ -39,7 +39,9 @@ namespace App.Application.DTOs
     public class ExamSectionDto
     {
         public Guid Id { get; set; }
-        public string Name { get; set; } // "Part 1", "Listening Section"
+        public Guid CategoryId { get; set; }
+        public string CategoryName { get; set; } 
+        public string Name { get; set; }
         public string? Instructions { get; set; }
         public int OrderIndex { get; set; }
 
@@ -128,6 +130,67 @@ namespace App.Application.DTOs
         public int OrderIndex { get; set; }
     }
 
+    #region DTO Preview exam query
+    // ── Response: cùng "shape" với StartExamResult, thêm IsCorrect ──
+    public class ExamPreviewDto
+    {
+        // Giả lập attempt (KHÔNG phải record thật)
+        public Guid AttemptId { get; set; } = Guid.Empty;  // sentinel: đây là preview
+        public bool IsPreview { get; set; } = true;
+        public bool ShowCorrectAnswers { get; set; }
+
+        // Metadata exam
+        public Guid ExamId { get; set; }
+        public string ExamTitle { get; set; }
+        public string ExamCode { get; set; }
+        public string Status { get; set; }             // Draft / Published
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+
+        // Giống hệt StartExamResult
+        public DateTime StartedAt { get; set; }
+        public DateTime ExpiresAt { get; set; }
+        public int TimeLimitSeconds { get; set; }
+        public int TotalQuestions { get; set; }
+        public List<PreviewSectionDto> Sections { get; set; } = new();
+    }
+
+    public class PreviewSectionDto
+    {
+        public Guid SectionId { get; set; }
+        public string SectionName { get; set; }
+        public string SkillType { get; set; }
+        public int OrderIndex { get; set; }
+        public string? Instructions { get; set; }
+        public List<PreviewQuestionDto> Questions { get; set; } = new();
+    }
+
+    public class PreviewQuestionDto
+    {
+        // Giống ExamQuestionPreview của Student
+        public Guid ExamQuestionId { get; set; }
+        public Guid QuestionId { get; set; }
+        public int OrderIndex { get; set; }
+        public double Point { get; set; }
+        public string Content { get; set; }
+        public string QuestionType { get; set; }
+        public string? AudioUrl { get; set; }
+        public string? ImageUrl { get; set; }
+        public string? Explanation { get; set; }
+        public string? ExplanationVi { get; set; }
+
+        // ✅ Preview thêm IsCorrect — Student KHÔNG có field này
+        public List<PreviewAnswerOption> Answers { get; set; } = new();
+    }
+
+    public class PreviewAnswerOption
+    {
+        public Guid Id { get; set; }
+        public string Content { get; set; }
+        public int OrderIndex { get; set; }
+        public bool IsCorrect { get; set; }  // ✅ Gửi cho Admin
+    }
+    #endregion
     public class ExamProfile : Profile
     {
         public ExamProfile()
@@ -136,16 +199,20 @@ namespace App.Application.DTOs
             CreateMap<Exam, ExamSummaryDto>()
                 .ForMember(d => d.QuestionCount, opt => opt.MapFrom(s => s.Sections.SelectMany(x => x.ExamQuestions).Count()));
 
-            // 2. Map Exam -> Detail
+            // 2. Map Exam -> Detail (Bao gồm cả Sections)
             CreateMap<Exam, ExamDetailDto>();
 
-            // 3. Map Section
+            // 3. Map Section 
             CreateMap<ExamSection, ExamSectionDto>()
-                .ForMember(d => d.Questions, opt => opt.MapFrom(s => s.ExamQuestions.OrderBy(q => q.OrderIndex)));
+                // Map danh sách câu hỏi và sắp xếp luôn
+                .ForMember(d => d.Questions, opt => opt.MapFrom(s => s.ExamQuestions.OrderBy(q => q.OrderIndex)))
+                // Map tên từ Category
+                .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.Category.Name))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Category.Name));
 
             // 4. Map ExamQuestion 
             CreateMap<ExamQuestion, ExamQuestionDto>()
-                .ForMember(d => d.ContentPreview, opt => opt.MapFrom(s => s.Question.Content)) // Lấy content từ bảng Question
+                .ForMember(d => d.ContentPreview, opt => opt.MapFrom(s => s.Question.Content))
                 .ForMember(d => d.QuestionType, opt => opt.MapFrom(s => s.Question.QuestionType))
                 .ForMember(d => d.DifficultyName, opt => opt.MapFrom(s => s.Question.Difficulty.Name));
 

@@ -61,7 +61,6 @@ namespace App.Application.Commands
                 student.Gender = request.Gender;
                 student.DateOfBirth = request.DateOfBirth;
                 student.SBD = request.SBD;
-                student.School = request.School;
                 student.UpdatedAt = DateTime.UtcNow;
 
                 _context.Students.Update(student);

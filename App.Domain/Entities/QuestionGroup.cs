@@ -4,6 +4,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace App.Domain.Entities
 {
+    /// <summary>
+    /// Entity: Lưu câu hỏi nhóm
+    /// </summary>
     public class QuestionGroup :BaseEntity
     {
         // Nội dung đoạn văn, hội thoại (HTML/Text)

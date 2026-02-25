@@ -13,7 +13,6 @@ namespace App.Application.DTOs.Questions
         public Guid Id { get; set; }
         public Guid CategoryId { get; set; }
         public string CategoryName { get; set; }
-        public Guid? GroupId { get; set; }   // Có thuộc bài đọc nào không?
         public string? Content { get; set; }  // HTML nội dung câu hỏi
         public string? ThumbnailUrl { get; set; }
         public bool HasAudio { get; set; }
@@ -22,6 +21,9 @@ namespace App.Application.DTOs.Questions
         public Guid? DifficultyId { get; set; }
         public string? DifficultyName { get; set; } // Hiển thị: "Hard", "Band 8.0"
         public string? DifficultyCode { get; set; }
+        public Guid? GroupId { get; set; }
+        public string? GroupContent { get; set; } // Nội dung bài đọc (Passage)
+        public bool HasGroup => GroupId.HasValue;
         public bool IsActive { get; set; } = true;
         public DateTime CreateAt { get; set; }
         public int AnswerCount { get; set; }
@@ -48,7 +50,6 @@ namespace App.Application.DTOs.Questions
         public Guid? GroupId { get; set; }   // Có thuộc bài đọc nào không?
         public string? Content { get; set; }  // HTML nội dung câu hỏi
         public string QuestionType { get; set; } // "SingleChoice", "Essay", "FillBlank"
-        public int DifficultyLevel { get; set; } = 1; // 1-Easy, 2-Medium, 3-Hard
         public bool IsActive { get; set; } = true;
         public string? Explanation { get; set; }
 
@@ -75,7 +76,6 @@ namespace App.Application.DTOs.Questions
         public string QuestionType { get; set; } = string.Empty;
         public Guid? DifficultyId { get; set; }
         public string? DifficultyName { get; set; } // Hiển thị: "Hard", "Band 8.0"
-        public string? DifficultyCode { get; set; }
         public double DefaultScore { get; set; }
         public bool ShuffleAnswers { get; set; }
         public bool IsActive { get; set; }
@@ -101,8 +101,6 @@ namespace App.Application.DTOs.Questions
         public string? Explanation { get; set; }
         public string? Transcript { get; set; }
         public Guid? DifficultyId { get; set; }
-        public string? DifficultyName { get; set; } // Hiển thị: "Hard", "Band 8.0"
-        public string? DifficultyCode { get; set; }
         public string? MediaJson { get; set; }
         public bool IsActive { get; set; }
 
@@ -119,7 +117,6 @@ namespace App.Application.DTOs.Questions
         public string QuestionType { get; set; } = string.Empty;
         public Guid? DifficultyId { get; set; }
         public double DefaultScore { get; set; }
-
         public string Content { get; set; } = string.Empty;
         public string? Explanation { get; set; }
         public List<MediaDto> Media { get; set; } = [];
@@ -236,9 +233,7 @@ namespace App.Application.DTOs.Questions
             CreateMap<QuestionMedia, PracticeMediaDto>(); // Đảm bảo bạn đã có class PracticeMediaDto
                                                           // Bỏ comment và sửa lại phần này ở cuối file QuestionProfile
             CreateMap<Question, SingleQuestionDetailDto>()
-                .ForMember(dest => dest.DifficultyName, opt => opt.MapFrom(src => src.Difficulty != null ? src.Difficulty.Name : null))
-                .ForMember(dest => dest.DifficultyCode, opt => opt.MapFrom(src => src.Difficulty != null ? src.Difficulty.Code : null));
-
+                .ForMember(dest => dest.DifficultyName, opt => opt.MapFrom(src => src.Difficulty != null ? src.Difficulty.Name : null));
             CreateMap<Answer, AnswerDto>(); // Map đáp án chi tiết
             CreateMap<QuestionMedia, MediaDto>(); // Map media chi tiết
         }

@@ -22,6 +22,8 @@ namespace App.Application.Questions.Commands
         // Files (chỉ dùng khi upload file)
         public IFormFile? AudioFile { get; set; }
         public IFormFile? ImageFile { get; set; }
+        public string? AudioUrl { get; set; }
+        public string? ImageUrl { get; set; }
         public bool DeleteAudio { get; set; } = false;
         public bool DeleteImage { get; set; } = false;
 
@@ -171,21 +173,25 @@ namespace App.Application.Questions.Commands
 
             if (isPart1)
             {
-                bool hasAudio = request.AudioFile != null
-                    || question.Media.Any(m => m.MediaType == "Audio" && !request.DeleteAudio);
-                bool hasImage = request.ImageFile != null
-                    || question.Media.Any(m => m.MediaType == "Image" && !request.DeleteImage);
+                var finalHasAudio = request.AudioFile != null 
+                                        || (!request.DeleteAudio && question.Media.Any(m => m.MediaType == "audio"))
+                                        || !string.IsNullOrEmpty(request.AudioUrl);
 
-                if (!hasAudio) throw new Exception("Part 1 bắt buộc có Audio");
-                if (!hasImage) throw new Exception("Part 1 bắt buộc có Hình ảnh");
+                var finalHasImage = request.ImageFile != null
+                                        || (!request.DeleteImage && question.Media.Any(m => m.MediaType == "image"))
+                                        || !string.IsNullOrEmpty(request.ImageUrl);
+               
+                if (!finalHasAudio) throw new Exception("Part 1 bắt buộc có Audio");
+                if (!finalHasImage) throw new Exception("Part 1 bắt buộc có Hình ảnh");
             }
 
             if (isPart2)
             {
-                bool hasAudio = request.AudioFile != null
-                    || question.Media.Any(m => m.MediaType == "Audio" && !request.DeleteAudio);
+                var finalHasAudio = request.AudioFile != null
+                                         || (!request.DeleteAudio && question.Media.Any(m => m.MediaType == "audio"))
+                                         || !string.IsNullOrEmpty(request.AudioUrl);
 
-                if (!hasAudio) throw new Exception("Part 2 bắt buộc có Audio");
+                if (!finalHasAudio) throw new Exception("Part 2 bắt buộc có Audio");
             }
 
             int expectedCount = isPart2 ? 3 : 4;

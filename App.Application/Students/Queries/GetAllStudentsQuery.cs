@@ -40,7 +40,6 @@ namespace App.Application.Queries
                         s.Fullname.Contains(request.Search) ||
                         s.SBD.Contains(request.Search) ||
                         s.CCCD.Contains(request.Search) ||
-                        s.School.Contains(request.Search) ||
                         s.User.Email.Contains(request.Search));
                 }
 
@@ -49,12 +48,7 @@ namespace App.Application.Queries
                     query = query.Where(s => s.Gender == request.Gender);
                 }
 
-                if (!string.IsNullOrEmpty(request.School))
-                {
-                    query = query.Where(s => s.School == request.School);
-                }
-
-              
+               
 
                 var students = await query
                     .OrderBy(s => s.Fullname)
@@ -68,7 +62,6 @@ namespace App.Application.Queries
                     Gender = s.Gender,
                     DateOfBirth = s.DateOfBirth,
                     SBD = s.SBD,
-                    School = s.School,
                     Email = s.User?.Email,
                     Phone = s.User?.Phone,
                  }).ToList();

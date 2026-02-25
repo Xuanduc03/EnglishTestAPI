@@ -595,7 +595,7 @@ namespace App.Application.Questions.Services
             }
         }
 
-        public void ValidateQuestionGroupCombined(QuestionGroupPreviewDto group, string partName, HashSet<string> groupContentSet, List<Domain.Entities.QuestionGroup> existingGroups)
+        public void ValidateQuestionGroupCombined(QuestionGroupPreviewDto group, string partName, HashSet<string> groupContentSet, List<QuestionGroupsDto> existingGroups)
         {
             if (string.IsNullOrWhiteSpace(group.GroupContent))
             {

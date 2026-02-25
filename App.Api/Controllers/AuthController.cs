@@ -24,30 +24,18 @@ namespace App.Api.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            try
-            {
-                if (dto == null)
-                    return BadRequest("Dữ liệu gửi lên không hợp lệ.");
+            if (dto == null)
+                return BadRequest("Dữ liệu gửi lên không hợp lệ.");
 
-                var id = await _mediator.Send(new RegisterUserCommand(dto));
+            var id = await _mediator.Send(new RegisterUserCommand(dto));
 
-                return Ok(new
-                {
-                    success = true,
-                    message = "Đăng ký tài khoản thành công!",
-                    userId = id
-                });
-            }
-            catch (Exception ex)
+            return Ok(new
             {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = "Đã xảy ra lỗi trong quá trình đăng ký. Vui lòng thử lại sau.",
-                    detail = ex.Message
-                });
-            }
-            
+                success = true,
+                message = "Đăng ký tài khoản thành công!",
+                userId = id
+            });
+
         }
 
 
@@ -55,53 +43,34 @@ namespace App.Api.Controllers
         [EnableRateLimiting("login")]
         public async Task<IActionResult> Login([FromBody] LoginUserCommand command)
         {
-            try
-            {
-                if (string.IsNullOrEmpty(command.Email) || string.IsNullOrEmpty(command.Password))
-                    return BadRequest("Email và mật khẩu không được để trống.");
 
-                var result = await _mediator.Send(command);
+            if (string.IsNullOrEmpty(command.Email) || string.IsNullOrEmpty(command.Password))
+                return BadRequest("Email và mật khẩu không được để trống.");
 
-                return Ok(new
-                {
-                    success = true,
-                    message = "Đăng nhập thành công.",
-                    data = result
-                });
-            }
-            catch (Exception ex)
+            var result = await _mediator.Send(command);
+
+            return Ok(new
             {
-                return StatusCode(401, new
-                {
-                    success = false,
-                    message = ex.Message
-                });
-            }
+                success = true,
+                message = "Đăng nhập thành công.",
+                data = result
+            });
+
         }
 
 
         [HttpPost("google-login")]
         public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginCommand command)
         {
-            try
-            {
-                var result = await _mediator.Send(command);
 
-                return Ok(new
-                {
-                    success = true,
-                    message = "Đăng nhập thành công.",
-                    data = result
-                });
-            }
-            catch (UnauthorizedAccessException ex)
+            var result = await _mediator.Send(command);
+
+            return Ok(new
             {
-                return Unauthorized(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+                success = true,
+                message = "Đăng nhập thành công.",
+                data = result
+            });
         }
 
         [HttpPost("forgot-password")]
@@ -110,110 +79,79 @@ namespace App.Api.Controllers
             if (string.IsNullOrEmpty(command.Email))
                 return BadRequest(new { message = "Email không được để trống" });
 
-            try
+
+            var result = await _mediator.Send(command);
+            return Ok(new
             {
-                var result = await _mediator.Send(command);
-                return Ok(new
-                {
-                    message = "Email khôi phục mật khẩu đã được gửi thành công!",
-                    token = result
-                });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
+                message = "Email khôi phục mật khẩu đã được gửi thành công!",
+                token = result
+            });
         }
-
-
 
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordCommand command)
         {
-            try
+
+            var result = await _mediator.Send(command);
+            return Ok(new
             {
-                var result = await _mediator.Send(command);
-                return Ok(new
-                {
-                    success = true,
-                    result = result
-                });
-            }catch (Exception ex)
-            {
-                return BadRequest(new {message = ex.Message});
-            }
+                success = true,
+                result = result
+            });
+
         }
 
         [Authorize]
         [HttpPost("logout")]
         public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
         {
-            try
+
+            // Lấy userId từ token
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("sub")?.Value;
+
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
             {
-                // Lấy userId từ token
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                    ?? User.FindFirst("sub")?.Value;
-
-                if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-                {
-                    return Unauthorized(new
-                    {
-                        success = false,
-                        message = "Token không hợp lệ"
-                    });
-                }
-
-                var command = new LogoutUserCommand(request.RefreshToken, userId);
-                var result = await _mediator.Send(command);
-
-                if (result)
-                {
-                    return Ok(new
-                    {
-                        success = true,
-                        message = "Đăng xuất thành công"
-                    });
-                }
-
-                return BadRequest(new
+                return Unauthorized(new
                 {
                     success = false,
-                    message = "Không thể đăng xuất"
+                    message = "Token không hợp lệ"
                 });
             }
-            catch (Exception ex)
+
+            var command = new LogoutUserCommand(request.RefreshToken, userId);
+            var result = await _mediator.Send(command);
+
+            if (result)
             {
-                return StatusCode(500, new
+                return Ok(new
                 {
-                    success = false,
-                    message = "Có lỗi xảy ra khi đăng xuất"
+                    success = true,
+                    message = "Đăng xuất thành công"
                 });
             }
+
+            return BadRequest(new
+            {
+                success = false,
+                message = "Không thể đăng xuất"
+            });
+
         }
 
         [HttpPost("refresh-token")]
-        public async Task<IActionResult> RefeshToken([FromBody]RefreshTokenCommand request, CancellationToken cancellation)
+        public async Task<IActionResult> RefeshToken([FromBody] RefreshTokenCommand request, CancellationToken cancellation)
         {
             if (string.IsNullOrEmpty(request.refreshToken))
             {
                 throw new Exception("Refresh token không được để trống");
             }
-            try
-            {
-                var result = await _mediator.Send(
-                    new RefreshTokenCommand(request.refreshToken), cancellation);
 
-                return Ok(result);
-            }catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = ex
-                });
-            }
+            var result = await _mediator.Send(
+                new RefreshTokenCommand(request.refreshToken), cancellation);
+
+            return Ok(result);
         }
-
 
     }
 }

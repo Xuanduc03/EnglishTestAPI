@@ -41,7 +41,9 @@ namespace App.Application.Questions.Commands
                     throw new KeyNotFoundException("Nhóm câu hỏi không tồn tại");
 
                 // Check dependencies (e.g., group link exam/result)
-                var hasExamQuestions = await _dbContext.ExamQuestions.AnyAsync(eq => group.Questions.Select(q => q.Id).Contains(eq.QuestionId), cancellationToken);
+                var hasExamQuestions = await _dbContext.ExamQuestions
+                    .AnyAsync(eq => group.Questions.Select(q => q.Id)
+                    .Contains(eq.QuestionId), cancellationToken);
                 if (hasExamQuestions)
                     throw new InvalidOperationException("Không thể xóa nhóm vì có câu hỏi liên kết với đề thi");
 

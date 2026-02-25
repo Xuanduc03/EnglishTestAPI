@@ -24,7 +24,7 @@ namespace App.Application.Queries
         public async Task<StudentDetailDto> Handle(GetStudentByIdQuery request, CancellationToken cancellationToken)
         {
             var studentDto = await _context.Students
-                 .AsNoTracking() // Đọc dữ liệu thì luôn thêm cái này cho nhẹ
+                 .AsNoTracking()
                  .Where(s => s.Id == request.Id)
                  .Select(s => new StudentDetailDto
                  {
@@ -33,16 +33,11 @@ namespace App.Application.Queries
                      CCCD = s.CCCD,
                      Gender = s.Gender,
                      SBD = s.SBD,
-                     School = s.School,
                      CreatedAt = s.CreatedAt,
                      UpdatedAt = s.UpdatedAt,
                      UserId = s.UserId,
-
-                     // Flatten dữ liệu User (Lấy thẳng ra ngoài, không cần nested object rườm rà)
                      Email = s.User.Email,
                      Phone = s.User.Phone,
-                     // Nếu frontend thực sự cần full User info (Avatar...), thì mới map object này
-                     // Còn nếu không thì BỎ ĐI cho nhẹ
                      User = s.User == null ? null : new UserDto
                      {
                          Id = s.User.Id,

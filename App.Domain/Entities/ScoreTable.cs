@@ -8,7 +8,8 @@ namespace App.Domain.Entities
         public virtual Exam Exam { get; set; }
 
         // Loại kỹ năng áp dụng: "Listening" hoặc "Reading"
-        public string SkillType { get; set; }
+        public Guid? CategoryId { get; set; }
+        public virtual Category Category { get;   set; }
 
         // JSON chứa quy tắc quy đổi
         // VD: {"10": 50, "11": 55, ..., "90": 450}

@@ -1,4 +1,5 @@
 ﻿using App.Application.Interfaces;
+using App.Application.Questions.Commands;
 using App.Application.Questions.Dtos;
 using App.Application.Questions.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -13,7 +14,7 @@ namespace App.Application.Questions.Services
 
         public List<ExistingQuestionLite> ExistingQuestions { get; init; } = new();
         public List<ExistingAnswerSetLite> ExistingAnswerSets { get; init; } = new();
-
+        public List<QuestionGroupsDto> ExistingGroups { get; init; } = new();
         public HashSet<string> MissingMediaFiles { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
@@ -38,6 +39,7 @@ namespace App.Application.Questions.Services
             //1. extract zip file to temp folder
             var tempFolder = Path.Combine(Path.GetTempPath(), "import_zip_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempFolder);
+
             try
             {
                 if (zipFile == null || zipFile.Length == 0)
@@ -50,7 +52,7 @@ namespace App.Application.Questions.Services
                     throw new ArgumentException("File upload phải là .zip");
 
                 // 2. đánh index media cho toàn bộ file 
-                var mediaIndex = _excelService.IndexMediaFiles(tempFolder);
+                var mediaIndexPath = _excelService.IndexMediaFiles(tempFolder);
 
                 //3. Tìm tệp Excel - ưu tiên tệp data.xlsx ở thư mục gốc hoặc sổ làm việc đầu tiên.
                 var excelPath = _excelService.FindExcelPath(tempFolder);
@@ -64,15 +66,18 @@ namespace App.Application.Questions.Services
 
                 foreach (var ws in package.Workbook.Worksheets)
                 {
-                    var sheet = ParseWorksheet(
-                        ws,
-                        context,
-                        mediaIndex); 
-
+                    var sheet = ParseWorksheet(ws, context, mediaIndexPath);
                     result.Sheets.Add(sheet);
                 }
 
                 result.MissingMediaFiles = context.MissingMediaFiles.ToList();
+
+                result.MediaIndex = mediaIndexPath.ToDictionary(
+                   kv => kv.Key,                       // key: normalized fileName
+                   kv => File.ReadAllBytes(kv.Value),  // value: byte[] đọc từ disk
+                   StringComparer.OrdinalIgnoreCase
+               );
+
                 return result;
             }
             finally
@@ -163,7 +168,7 @@ namespace App.Application.Questions.Services
                     }
 
                     // validate question group 
-                    _excelService.ValidateQuestionGroupCombined(groupDto, sheetName, groupContentSet, new List<Domain.Entities.QuestionGroup>());
+                    _excelService.ValidateQuestionGroupCombined(groupDto, sheetName, groupContentSet, context.ExistingGroups);
                     sheetSummary.Items.Add(groupDto);
                     sheetSummary.TotalQuestionsOrGroups++;
                 }

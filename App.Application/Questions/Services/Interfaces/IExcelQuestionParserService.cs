@@ -103,7 +103,7 @@ namespace App.Application.Questions.Services.Interfaces
         void ValidateQuestionInGroupCombined(QuestionInGroupPreviewDto question, int expectedNumber);
 
 
-        void ValidateQuestionGroupCombined(QuestionGroupPreviewDto group, string partName, HashSet<string> groupContentSet, List<Domain.Entities.QuestionGroup> existingGroups);
+        void ValidateQuestionGroupCombined(QuestionGroupPreviewDto group, string partName, HashSet<string> groupContentSet, List<QuestionGroupsDto> existingGroups);
 
         void ValidateQuestionCombined(QuestionPreviewDto dto, string partName, HashSet<string> contentSet, HashSet<string> answerSignatureSet, List<ExistingQuestionLite> existingQuestions, List<ExistingAnswerSetLite> existingAnswerSets);
     }

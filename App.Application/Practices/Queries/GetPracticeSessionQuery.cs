@@ -1,38 +1,29 @@
 ﻿using App.Application.DTOs;
 using App.Application.Interfaces;
 using App.Domain.Entities;
-using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace App.Application.Practices.Queries
 {
-    // Request: Gửi lên SessionId (Guid)
     public record GetPracticeSessionQuery(Guid SessionId) : IRequest<PracticeSessionDto>;
 
     public class GetPracticeSessionQueryHandler : IRequestHandler<GetPracticeSessionQuery, PracticeSessionDto>
     {
         private readonly IAppDbContext _context;
-        private readonly IMapper _mapper;
 
-        public GetPracticeSessionQueryHandler(IAppDbContext context, IMapper mapper)
+        public GetPracticeSessionQueryHandler(IAppDbContext context)
         {
             _context = context;
-            _mapper = mapper;
         }
 
         public async Task<PracticeSessionDto> Handle(GetPracticeSessionQuery request, CancellationToken cancellationToken)
         {
-            // 1. Lấy thông tin PracticeAttempt và các câu trả lời đã lưu
+            // 1. Load attempt
             var attempt = await _context.PracticeAttempts
-                .Include(a => a.Answers) // Quan trọng: Load câu trả lời cũ để hiển thị lại
-                .Include(a => a.PartResults)
                 .AsNoTracking()
+                .Include(a => a.Answers)
+                .Include(a => a.PartResults)
                 .FirstOrDefaultAsync(a => a.Id == request.SessionId, cancellationToken);
 
             if (attempt == null)
@@ -41,67 +32,138 @@ namespace App.Application.Practices.Queries
             if (attempt.Status == AttemptStatus.Submitted)
                 throw new InvalidOperationException("Bài tập này đã hoàn thành, không thể làm tiếp.");
 
-            // 2. Lấy danh sách câu hỏi dựa trên các QuestionId đã lưu trong bảng PracticeAnswers
-            //    (Phải lấy theo đúng thứ tự đã lưu trong PracticeAnswers)
+            // 2. Load questions theo đúng thứ tự
             var answerData = attempt.Answers.OrderBy(a => a.OrderIndex).ToList();
             var questionIds = answerData.Select(a => a.QuestionId).ToList();
 
-            // Load Question Entities từ DB
             var questions = await _context.Questions
+                .AsNoTracking()
                 .Where(q => questionIds.Contains(q.Id))
                 .Include(q => q.Answers)
                 .Include(q => q.Media)
                 .Include(q => q.Group).ThenInclude(g => g.Media)
-                .AsNoTracking()
+                // Bỏ ThenInclude(g => g.Questions) → gây cycle với AsNoTracking
                 .ToListAsync(cancellationToken);
 
-            // 3. Khởi tạo Session DTO
+            var questionDict = questions.ToDictionary(q => q.Id);
+            var questionCategoryMap = questions.ToDictionary(q => q.Id, q => q.CategoryId);
+
+            var groupMeta = questions
+                .Where(q => q.GroupId.HasValue)
+                .GroupBy(q => q.GroupId!.Value)
+                .ToDictionary(g => g.Key, g => g.OrderBy(q => q.CreatedAt).ToList());
+
+            // 3. Build session
             var session = new PracticeSessionDto
             {
                 SessionId = attempt.Id,
                 Title = attempt.Title,
                 TotalQuestions = attempt.TotalQuestions,
-                // Tính thời gian còn lại (nếu có giới hạn)
-                Duration = attempt.TimeLimitSeconds.HasValue
-                    ? attempt.TimeLimitSeconds.Value / 60
-                    : 0,
+                Duration = attempt.TimeLimitSeconds.HasValue ? attempt.TimeLimitSeconds.Value / 60 : 0,
                 Parts = new List<PracticePartDto>()
             };
 
-            // 4. Tái tạo cấu trúc Parts và Questions
-            //    (Ở đây tôi giả định gom hết vào 1 part hoặc bạn phải lưu PartId trong PracticeAnswers nếu muốn chia part chính xác như lúc start)
-
-            // Cách đơn giản: Map lại câu hỏi và điền đáp án người dùng đã chọn
-            var questionDtos = new List<PracticeQuestionDto>();
-
-            foreach (var storedAnswer in answerData)
+            // 4. Chia đúng part theo PartResults đã lưu
+            foreach (var partResult in attempt.PartResults.OrderBy(pr => pr.PartNumber))
             {
-                var questionEntity = questions.FirstOrDefault(q => q.Id == storedAnswer.QuestionId);
-                if (questionEntity == null) continue;
+                var partQuestionIds = questionCategoryMap
+                    .Where(kv => kv.Value == partResult.CategoryId)
+                    .Select(kv => kv.Key)
+                    .ToHashSet();
 
-                var qDto = _mapper.Map<PracticeQuestionDto>(questionEntity);
+                var partAnswerData = answerData
+                    .Where(a => partQuestionIds.Contains(a.QuestionId))
+                    .ToList();
 
-                // --- QUAN TRỌNG: Restore trạng thái cũ ---
-                qDto.OrderIndex = storedAnswer.OrderIndex;
-                qDto.QuestionNumber = storedAnswer.OrderIndex;
+                if (!partAnswerData.Any()) continue;
 
-                // Nếu bạn muốn Frontend hiển thị đáp án đã chọn, 
-                // bạn cần thêm field 'SelectedAnswerId' vào PracticeQuestionDto (xem mục 3 bên dưới)
-                qDto.SelectedAnswerId = storedAnswer.SelectedAnswerId;
-                qDto.IsMarkedForReview = storedAnswer.IsMarkedForReview;
+                var questionDtos = new List<PracticeQuestionDto>();
 
-                questionDtos.Add(qDto);
+                foreach (var storedAnswer in partAnswerData)
+                {
+                    if (!questionDict.TryGetValue(storedAnswer.QuestionId, out var q)) continue;
+
+                    var dto = new PracticeQuestionDto
+                    {
+                        QuestionId = q.Id,
+                        OrderIndex = storedAnswer.OrderIndex,
+                        QuestionNumber = storedAnswer.OrderIndex,
+                        Content = q.Content,
+                        Explanation = q.Explanation,
+                        GroupId = q.GroupId,
+                        Media = q.Media.OrderBy(m => m.OrderIndex).Select(MapMedia).ToList(),
+                        HasAudio = q.Media.Any(m => IsAudio(m.MediaType, m.Url)),
+                        HasImage = q.Media.Any(m => IsImage(m.MediaType, m.Url)),
+                        AudioUrl = q.Media.FirstOrDefault(m => IsAudio(m.MediaType, m.Url))?.Url,
+                        ImageUrl = q.Media.FirstOrDefault(m => IsImage(m.MediaType, m.Url))?.Url,
+                        Answers = q.Answers.OrderBy(a => a.OrderIndex).Select(MapAnswer).ToList(),
+                        SelectedAnswerId = storedAnswer.SelectedAnswerId,
+                        IsMarkedForReview = storedAnswer.IsMarkedForReview,
+                        IsCorrect = null,
+                    };
+
+                    if (q.GroupId.HasValue && q.Group != null
+                        && groupMeta.TryGetValue(q.GroupId.Value, out var siblings))
+                    {
+                        dto.GroupContent = q.Group.Content;
+                        dto.TotalQuestionsInGroup = siblings.Count;
+                        dto.QuestionIndexInGroup = siblings.FindIndex(x => x.Id == q.Id) + 1;
+                        dto.GroupMedia = q.Group.Media.OrderBy(m => m.OrderIndex).Select(MapGroupMedia).ToList();
+                    }
+
+                    questionDtos.Add(dto);
+                }
+
+                session.Parts.Add(new PracticePartDto
+                {
+                    PartId = partResult.CategoryId,
+                    PartName = partResult.PartName,
+                    PartNumber = partResult.PartNumber,
+                    Questions = questionDtos
+                });
             }
 
-            // Gom vào 1 Part giả định (hoặc logic chia part của bạn)
-            session.Parts.Add(new PracticePartDto
-            {
-                PartId = attempt.CategoryId ?? Guid.Empty,
-                PartName = "Resume Part",
-                Questions = questionDtos
-            });
-
             return session;
+        }
+
+        private static PracticeMediaDto MapMedia(QuestionMedia m) => new()
+        {
+            Id = m.Id,
+            Url = m.Url,
+            Type = ResolveMediaType(m.MediaType, m.Url)
+        };
+
+        private static PracticeMediaDto MapGroupMedia(QuestionGroupMedia m) => new()
+        {
+            Id = m.Id,
+            Url = m.Url,
+            Type = ResolveMediaType(m.MediaType, m.Url)
+        };
+
+        private static PracticeAnswerDto MapAnswer(Answer a) => new()
+        {
+            Id = a.Id,
+            Content = a.Content,
+            OrderIndex = a.OrderIndex,
+            IsCorrect = a.IsCorrect,
+            Media = new List<PracticeMediaDto>()
+        };
+
+        private static string ResolveMediaType(string? mediaType, string? url) =>
+            !string.IsNullOrWhiteSpace(mediaType) ? mediaType.ToLower() : GetTypeFromUrl(url);
+
+        private static bool IsAudio(string? t, string? u) => ResolveMediaType(t, u) == "audio";
+        private static bool IsImage(string? t, string? u) => ResolveMediaType(t, u) == "image";
+
+        private static string GetTypeFromUrl(string? url)
+        {
+            if (string.IsNullOrEmpty(url)) return "unknown";
+            var u = url.ToLower();
+            if (u.EndsWith(".mp3") || u.EndsWith(".wav") || u.EndsWith(".ogg") || u.EndsWith(".m4a")) return "audio";
+            if (u.EndsWith(".jpg") || u.EndsWith(".jpeg") || u.EndsWith(".png") || u.EndsWith(".webp")) return "image";
+            if (u.EndsWith(".mp4") || u.EndsWith(".webm")) return "video";
+            if (u.Contains("/image/upload/")) return "image";
+            return "unknown";
         }
     }
 }

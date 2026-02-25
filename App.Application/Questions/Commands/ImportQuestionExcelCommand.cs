@@ -196,6 +196,7 @@ namespace App.Application.Questions.Commands
                 Categories = categories,
                 ExistingQuestions = existingQuestions,
                 ExistingAnswerSets = existingAnswerSets,
+                ExistingGroups = existingGroups,
                 ValidateAgainstDatabase = true
             };
 

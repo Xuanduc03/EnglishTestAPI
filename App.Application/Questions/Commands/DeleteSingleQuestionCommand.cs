@@ -42,9 +42,9 @@ namespace App.Application.Questions.Commands
 
                 // Check dependencies (business: không xóa nếu link exam/result)
                 var hasExamQuestions = await _dbContext.ExamQuestions.AnyAsync(eq => eq.QuestionId == request.Id, cancellationToken);
-                var hasStudentAnswers = await _dbContext.StudentAnswers.AnyAsync(sa => sa.QuestionId == request.Id, cancellationToken);
-                if (hasExamQuestions || hasStudentAnswers)
-                    throw new InvalidOperationException("Không thể xóa câu hỏi vì đã liên kết với đề thi hoặc kết quả");
+                //var hasStudentAnswers = await _dbContext.StudentAnswers.AnyAsync(sa => sa.QuestionId == request.Id, cancellationToken);
+                //if (hasExamQuestions || hasStudentAnswers)
+                //    throw new InvalidOperationException("Không thể xóa câu hỏi vì đã liên kết với đề thi hoặc kết quả");
 
                 if (request.HardDelete)
                 {

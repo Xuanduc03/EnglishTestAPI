@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using App.Application.Services.Interface;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
 using System.IO;
@@ -24,7 +25,15 @@ namespace App.Infrastructure.Data
                 ServerVersion.AutoDetect(connectionString)
             );
 
-            return new AppDbContext(optionsBuilder.Options);
+            return new AppDbContext(optionsBuilder.Options, new DesignTimeCurrentUserService());
+        }
+
+        /// <summary>
+        /// Fake user service cho migration.
+        /// </summary>
+        private class DesignTimeCurrentUserService : ICurrentUserService
+        {
+            public Guid? UserId => null;
         }
     }
 }

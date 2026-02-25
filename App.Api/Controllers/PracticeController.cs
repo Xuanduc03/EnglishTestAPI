@@ -12,7 +12,6 @@ namespace App.Api.Controllers
 {
     [ApiController]
     [Route("api/practice")]
-    [Authorize]
     public class PracticeController : ControllerBase
     {
         private readonly IMediator _mediator;
@@ -53,34 +52,6 @@ namespace App.Api.Controllers
             });
         }
 
-        // ============================================
-        // 2. SUBMIT ANSWER
-        // ============================================
-
-        /// <summary>
-        /// Submit câu trả lời cho 1 question
-        /// POST /api/practice/answer
-        /// </summary>
-        [HttpPost("answer")]
-        public async Task<IActionResult> SubmitAnswer([FromBody] SubmitPracticeAnswerRequest request)
-        {
-            var command = new SubmitPracticeAnswerCommand(
-                SessionId: request.SessionId,
-                QuestionId: request.QuestionId,
-                AnswerId: request.AnswerId,
-                IsMarkedForReview: request.IsMarkedForReview,
-                TimeSpentSeconds: 0  // Frontend should track this
-            );
-
-            var result = await _mediator.Send(command);
-
-            return Ok(new
-            {
-                success = true,
-                data = result,
-                message = result.IsCorrect ? "Correct!" : "Incorrect"
-            });
-        }
 
         // ============================================
         // 3. SUBMIT PRACTICE SESSION
@@ -91,11 +62,14 @@ namespace App.Api.Controllers
         /// POST /api/practice/{sessionId}/submit
         /// </summary>
         [HttpPost("{sessionId}/submit")]
-        public async Task<IActionResult> SubmitPractice(Guid sessionId)
+        public async Task<IActionResult> SubmitPractice( Guid sessionId, [FromBody] SubmitPracticeCommand request)
         {
-            var command = new SubmitPracticeCommand(sessionId);
+            var command = new SubmitPracticeCommand(
+                sessionId,
+                request.Answers,
+                request.TotalTimeSeconds
+            );
             var result = await _mediator.Send(command);
-
             return Ok(new
             {
                 success = true,
@@ -208,10 +182,10 @@ namespace App.Api.Controllers
         //// 8. RESUME PRACTICE
         //// ============================================
 
-        ///// <summary>
-        ///// Resume practice session đang dở
-        ///// GET /api/practice/{sessionId}/resume
-        ///// </summary>
+        /// <summary>
+        /// Resume practice session đang dở
+        /// GET /api/practice/{sessionId}/resume
+        /// </summary>
         [HttpGet("{sessionId}/resume")]
         public async Task<IActionResult> ResumePractice(Guid sessionId)
         {
@@ -225,5 +199,18 @@ namespace App.Api.Controllers
                 message = "Practice session resumed"
             });
         }
+
+        /// <summary>
+        /// Hiển thị list các practice đang làm dở 
+        /// GET /api/practice/{sessionId}/resume
+        /// </summary>
+        [HttpGet("in-progress")]
+        public async Task<IActionResult> GetInProgressPractices()
+        {
+            var query = new GetInProgressPracticesQuery();
+            var result = await _mediator.Send(query);
+            return Ok(new { success = true, data = result });
+        }
+
     }
 }
