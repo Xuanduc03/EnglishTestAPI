@@ -70,6 +70,7 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, G
             Id = Guid.NewGuid(),
             UserId = user.Id,
             Fullname = user.Fullname,
+            MemberLevel = "Normal",
             CreatedAt = DateTime.UtcNow,
             IsActive = true
         };
@@ -80,8 +81,8 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, G
         try
         {
             _dbContext.Users.Add(user);
+            _dbContext.Students.Add(newStudent);
             _dbContext.UserRoles.Add(newUserRole);
-            _dbContext.Students.Add(newStudent);    
             await _dbContext.SaveChangesAsync(cancellationToken);
             await _dbContext.CommitTransactionAsync(cancellationToken);
 
