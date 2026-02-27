@@ -114,6 +114,8 @@ namespace App.Api.Controllers
 
 
         [HttpPost("preview-excel-zip")]
+        [RequestSizeLimit(200_000_000)] // 200 MB
+        [RequestFormLimits(MultipartBodyLengthLimit = 200_000_000)]
         public async Task<IActionResult> PreviewExcelZip(
         [FromForm] PreviewQuestionExcelCommand request,
         CancellationToken cancellationToken)

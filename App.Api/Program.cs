@@ -15,6 +15,7 @@ using App.Application.Services.Interface;
 using App.Application.Services;
 using App.Application.Validators;
 using App.Application.ExamAttempts.Commands;
+using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -126,6 +127,17 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(appApplicati
 builder.Services.AddAutoMapper(appApplicationAssembly);
 builder.Services.AddValidatorsFromAssembly(appApplicationAssembly);
 
+// add service limit from file
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 200 * 1024 * 1024; // 200 MB
+});
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 200 * 1024 * 1024; // 200 MB
+});
+
 // service import excel question
 builder.Services.AddValidatorsFromAssemblyContaining<StartExamCommandValidator>();
 builder.Services.AddScoped<IUtilExcelService, UtilExcelService>();
@@ -155,5 +167,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseStaticFiles();
 app.MapControllers();
-
+app.MapGet("/ping", () => "pong");
 app.Run();

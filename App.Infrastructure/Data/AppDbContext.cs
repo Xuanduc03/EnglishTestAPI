@@ -53,6 +53,10 @@ namespace App.Infrastructure.Data
         public DbSet<PracticeAnswer> PracticeAnswers { get; set; }
         public DbSet<PracticePartResult> PracticePartResults { get; set; }
 
+        // Khối từ vựng 
+        public DbSet<VocabularyWord> VocabularyWords { get; set; }
+        public DbSet<UserVocabularyProgress> UserVocabularyProgresses { get; set; }
+
         protected override Guid? GetCurrentUserId() => _currentUserService.UserId;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -78,7 +78,7 @@ namespace App.API.Middleware
                 // 401 - Chưa xác thực
                 UnauthorizedAccessException unAuthEx
                     => (HttpStatusCode.Unauthorized,
-                        "Bạn chưa đăng nhập hoặc phiên đăng nhập hết hạn",
+                         unAuthEx.Message,
                         (object?)null),
 
                 // 403 - Không có quyền

@@ -136,6 +136,20 @@ namespace App.Api.Controllers
             return Ok(new { success = true, data = result });
         }
 
+
+        // xóa nhiều câu hỏi khỏi section 
+        [HttpDelete("{examId}/questions")]
+        public async Task<IActionResult> BulkDeleteQuestions(Guid examId, [FromBody] List<Guid> examQuestionIds)
+        {
+            var command = new BulkDeleteExamQuestionsCommand
+            {
+                ExamId = examId,
+                ExamQuestionIds = examQuestionIds
+            };
+            var result = await _mediator.Send(command);
+            return Ok(new { success = result });
+        }
+
         // ============================================
         // UC-22.6: CẬP NHẬT ĐIỂM SỐ CÂU HỎI
         // PATCH /api/exams/{examId}/questions/{examQuestionId}/point

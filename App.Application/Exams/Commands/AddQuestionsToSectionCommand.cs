@@ -37,6 +37,7 @@ namespace App.Application.Exams.Commands
 
             var section = await _context.ExamSections
                 .Include(s => s.Exam)
+                .Include(c => c.Category)
                 .FirstOrDefaultAsync(x =>
                     x.Id == request.SectionId &&
                     x.ExamId == request.ExamId &&
@@ -116,7 +117,10 @@ namespace App.Application.Exams.Commands
             if (section.Exam.Type != ExamType.TOEIC)
                 return;
 
-            var limits = new Dictionary<string, int>
+            if (section.Category == null)
+                throw new ValidationException("Section chưa có category");
+
+            var limits = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
             {
                 { "Part 1", 6 },
                 { "Part 2", 25 },
@@ -127,7 +131,7 @@ namespace App.Application.Exams.Commands
                 { "Part 7", 54 }
             };
 
-            var partName = section.Category.Name;
+            var partName = section.Category.Code;
 
             if (!limits.ContainsKey(partName))
                 return;
