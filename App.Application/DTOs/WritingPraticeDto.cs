@@ -6,8 +6,6 @@ using System.Threading.Tasks;
 
 namespace App.Application.DTOs
 {
-    namespace App.Application.DTOs
-    {
         // ============================================================
         // TOEIC WRITING — DTOs
         // Part 1 (Q1-8) : Write a sentence from a photo + 2 words
@@ -200,5 +198,5 @@ namespace App.Application.DTOs
             Completed,
             Failed
         }
-    }
+   
 }

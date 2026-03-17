@@ -216,12 +216,18 @@ namespace App.Api.Controllers
         /// Upload ảnh → Gemini extract → trả JSON preview
         [HttpPost("extract")]
         public async Task<IActionResult> Extract(
-            [FromForm] IFormFile file,
-            [FromForm] string examType = "IELTS_READING")
+    [FromForm] List<IFormFile> files,
+    [FromForm] string examType = "IELTS_READING")
         {
+            if (files == null || !files.Any())
+                return BadRequest(new { message = "Vui lòng upload ít nhất 1 ảnh" });
+
+            if (files.Count > 10)
+                return BadRequest(new { message = "Tối đa 10 ảnh mỗi lần" });
+
             var result = await _mediator.Send(new UploadAndExtractCommand
             {
-                File = file,
+                Files = files,
                 ExamType = examType,
             });
 

@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using System.Text;
-
 namespace App.Api.Controllers
 {
 
@@ -9,88 +8,100 @@ namespace App.Api.Controllers
     [ApiController]
     public class TestAiController : ControllerBase
     {
-        [HttpPost("extract")]
-        public async Task<IActionResult> ExtractImage([FromForm] IFormFile file)
+        [HttpPost("grade-writing")]
+        public async Task<IActionResult> GradeWriting([FromBody] WritingRequest req)
         {
-            if (file == null || file.Length == 0) return BadRequest("Chưa upload ảnh");
+            if (string.IsNullOrWhiteSpace(req.Question) || string.IsNullOrWhiteSpace(req.Answer))
+                return BadRequest("Thiếu question hoặc answer");
 
-            // 1. Chuyển file ảnh sang Base64
-            using var ms = new MemoryStream();
-            await file.CopyToAsync(ms);
-            var base64Image = Convert.ToBase64String(ms.ToArray());
-
-            // 2. Setup URL chuẩn theo cURL của bạn (Không nối key vào đây nữa)
             string endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
             string apiKey = "AIzaSyDKA-yumIjHrsP52GjyE6rQaWiAVDHISqU";
 
-            // 3. Prompt yêu cầu trả về JSON có cả bài đọc + trắc nghiệm
-            string prompt = @"You are an expert data extractor system for IELTS exam papers. 
-                I will provide you with an image of an IELTS reading test. 
-                Your task is to extract the main reading passage and all the multiple-choice questions.
-                Strictly return ONLY a valid JSON object. Do not output any markdown formatting like ```json.
-                JSON format requirements:
-                {
-                  ""passageTitle"": ""Title of the passage if available, otherwise null"",
-                  ""passageContent"": ""The full text of the reading passage here"",
-                  ""questions"": [
-                    {
-                      ""questionText"": ""The extracted question text here"",
-                      ""options"": {
-                        ""A"": ""First option"",
-                        ""B"": ""Second option"",
-                        ""C"": ""Third option"",
-                        ""D"": ""Fourth option or null if not present""
-                      }
-                    }
-                  ]
-                }";
+            // 🔥 Prompt chấm Writing
+            string prompt = $@"
+You are a TOEIC Writing examiner.
 
-            // 4. Build Body chứa text prompt VÀ data ảnh (giống hệt cấu trúc -d của curl)
+Score the answer based on 4 criteria:
+- grammar (0-10)
+- vocabulary (0-10)
+- coherence (0-10)
+- task achievement (0-10)
+
+Rules:
+- If the answer is too short (< 20 words), reduce task_achievement significantly
+- Final score = average of all 4 criteria (rounded)
+
+Return STRICT JSON only. No markdown. No explanation.
+
+Format:
+{{
+  ""score"": number,
+  ""grammar"": number,
+  ""vocabulary"": number,
+  ""coherence"": number,
+  ""task_achievement"": number,
+  ""feedback"": ""text"",
+  ""improvement"": ""text""
+}}
+
+Question:
+{req.Question}
+
+Answer:
+{req.Answer}
+";
+
             var requestBody = new
             {
                 contents = new[]
                 {
-                new {
-                    parts = new object[]
-                    {
-                        new { text = prompt },
-                        new { inline_data = new { mime_type = file.ContentType, data = base64Image } }
+                    new {
+                        parts = new object[]
+                        {
+                            new { text = prompt }
+                        }
                     }
                 }
-            }
             };
 
-            // 5. Khởi tạo Request, gắn Header giống -H của curl
             using var client = new HttpClient();
             var requestMessage = new HttpRequestMessage(HttpMethod.Post, endpoint);
 
-            // Đây chính là điểm ăn tiền từ lệnh curl của bạn
             requestMessage.Headers.Add("X-goog-api-key", apiKey);
 
-            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-            requestMessage.Content = content;
+            requestMessage.Content = new StringContent(
+                JsonSerializer.Serialize(requestBody),
+                Encoding.UTF8,
+                "application/json"
+            );
 
-            // 6. Bắn!
             var response = await client.SendAsync(requestMessage);
             var responseString = await response.Content.ReadAsStringAsync();
+
             if (response.IsSuccessStatusCode)
             {
-                // 1. Parse cái JSON khổng lồ của Google
                 using JsonDocument doc = JsonDocument.Parse(responseString);
 
-                // 2. Đi sâu vào trong để móc đúng cục text chứa dữ liệu mình cần
-                string extractedJsonString = doc.RootElement
+                string result = doc.RootElement
                     .GetProperty("candidates")[0]
                     .GetProperty("content")
                     .GetProperty("parts")[0]
                     .GetProperty("text")
                     .GetString();
 
-                // 3. Trả về đúng cái JSON cấu trúc Đề thi + Câu hỏi cho ReactJS xử lý
-                return Ok(extractedJsonString);
+                // 🔥 clean nếu bị dính markdown
+                result = result.Replace("```json", "").Replace("```", "").Trim();
+
+                return Ok(result);
             }
 
-            return BadRequest($"Lỗi từ Google API: {responseString}");
+            return BadRequest($"Gemini API error: {responseString}");
+        }
+
+        public class WritingRequest
+        {
+            public string Question { get; set; } = "";
+            public string Answer { get; set; } = "";
         }
     }
 }

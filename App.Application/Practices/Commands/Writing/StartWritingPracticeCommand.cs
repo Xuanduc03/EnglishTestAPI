@@ -1,12 +1,12 @@
 ﻿using MediatR;
-using global::App.Application.DTOs.App.Application.DTOs;
-using global::App.Application.Interfaces;
-using global::App.Application.Writing.Queries;
-using global::App.Domain.Entities;
+using App.Application.DTOs;
+using App.Application.Interfaces;
+using App.Application.Writing.Queries;
+using App.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace App.Application.Practices.Commands
+namespace App.Application.Practices.Commands.Writing
 {
     // ============================================================
     // START WRITING PRACTICE COMMAND
@@ -61,7 +61,7 @@ namespace App.Application.Practices.Commands
                 Title = session.Title,
                 StartedAt = DateTime.UtcNow,
                 TimeLimitSeconds = request.IsTimed
-                    ? (request.TimeLimitMinutes * 60 ?? session.TimeLimitSeconds)
+                    ? request.TimeLimitMinutes * 60 ?? session.TimeLimitSeconds
                     : null,
                 Status = AttemptStatus.InProgress,
                 TotalQuestions = session.TotalQuestions,

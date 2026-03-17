@@ -1,5 +1,4 @@
 ﻿using App.Application.DTOs;
-using App.Application.DTOs.App.Application.DTOs;
 using App.Application.Interfaces;
 using App.Domain.Entities;
 using MediatR;
@@ -28,13 +27,13 @@ namespace App.Application.Writing.Queries
         {
             [1] = new("Writing Part 1", WritingPartType.SentenceFromPhoto,
                       "Write ONE sentence using the TWO words or phrases given.",
-                      questionsCount: 8, timeLimitSeconds: 480), // 1 phút/câu
+                      QuestionsCount: 8, TimeLimitSeconds: 480), // 1 phút/câu
             [2] = new("Writing Part 2", WritingPartType.EmailResponse,
                       "Read the email and respond. Address all THREE points mentioned.",
-                      questionsCount: 2, timeLimitSeconds: 1200), // 10 phút/câu
+                      QuestionsCount: 2, TimeLimitSeconds: 1200), // 10 phút/câu
             [3] = new("Writing Part 3", WritingPartType.OpinionEssay,
                       "Give your opinion on the following topic. Write at least 300 words.",
-                      questionsCount: 1, timeLimitSeconds: 1200)  // 20 phút
+                      QuestionsCount: 1, TimeLimitSeconds: 1200)  // 20 phút
         };
 
         public GetWritingQuestionsQueryHandler(IAppDbContext context)
@@ -209,8 +208,17 @@ namespace App.Application.Writing.Queries
 
         private static int ExtractPartNumber(string name)
         {
-            var parts = name.Split(' ');
-            return parts.Length >= 2 && int.TryParse(parts[^1], out int n) ? n : 0;
+            if (string.IsNullOrWhiteSpace(name)) return 0;
+
+            // Đưa tất cả về chữ thường cho dễ xử lý
+            var normalizedName = name.ToLowerInvariant();
+
+            // Bắt cả "part 1" và "task 1"
+            if (normalizedName.Contains("part 1") || normalizedName.Contains("task 1")) return 1;
+            if (normalizedName.Contains("part 2") || normalizedName.Contains("task 2")) return 2;
+            if (normalizedName.Contains("part 3") || normalizedName.Contains("task 3")) return 3;
+
+            return 0; // Trả về 0 nếu không tìm thấy
         }
 
         private static string BuildTitle(List<WritingPartDto> parts)
@@ -223,10 +231,10 @@ namespace App.Application.Writing.Queries
 
     // ── Internal config record ────────────────────────────────────
 
-    file record WritingPartConfig(
-        string Name,
-        WritingPartType PartType,
-        string Instructions,
-        int QuestionsCount,
-        int TimeLimitSeconds);
+    internal record WritingPartConfig(
+       string Name,
+       WritingPartType PartType,
+       string Instructions,
+       int QuestionsCount,
+       int TimeLimitSeconds);
 }
