@@ -1,9 +1,12 @@
 ﻿
 namespace App.Domain.Entities
 {
+    /// <summary>
+    /// Entity: Lưu trữ đáp án của các câu hỏi
+    /// </summary>
     public class Answer : BaseEntity
     {
-        public Guid QuestionId { get; set; }
+        public Guid QuestionId { get; set; }            // câu hỏi nào ?
 
         public string Content { get; set; }            // Nội dung đáp án
         public bool IsCorrect { get; set; }            // Đáp án đúng
@@ -17,3 +20,4 @@ namespace App.Domain.Entities
         public double? ScoreWeight { get; set; }
     }
 }
+ 

@@ -16,6 +16,11 @@ using App.Application.Services;
 using App.Application.Validators;
 using App.Application.ExamAttempts.Commands;
 using Microsoft.AspNetCore.Http.Features;
+using App.Application.Practices.Jobs;
+using Hangfire;
+using Hangfire.MySql;
+using App.Api.Filters;
+using App.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +29,36 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
 );
+
+// 1. Hangfire
+builder.Services.AddHangfire(config =>
+    config.UseStorage(new MySqlStorage(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        new MySqlStorageOptions
+        {
+            TablesPrefix = "Hangfire_",
+            QueuePollInterval = TimeSpan.FromSeconds(15)
+        })));
+
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = 5;           // 5 workers song song
+    options.Queues = new[] { "default", "ai-grading" };
+});
+
+// 2. OpenAI HttpClient
+builder.Services.AddHttpClient("OpenAI", client =>
+{
+    client.BaseAddress = new Uri("https://api.openai.com");
+    client.Timeout = TimeSpan.FromSeconds(120); // AI có thể chậm
+});
+
+// 3. Register services
+builder.Services.AddScoped<IAIGradingService, OpenAIGradingService>();
+builder.Services.AddScoped<PracticeAIGradingJob>();
+
+
+
 
 builder.Services.Configure<CloudinaryOptions>(
     builder.Configuration.GetSection("Cloudinary"));
@@ -54,11 +89,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssemblyContaining<StartExamCommand>();  // Assembly chứa commands/queries
-    // cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()); // Nếu cùng assembly
-
-    // Thêm ValidationBehavior vào pipeline (chạy trước handler)
-
-    // Optional: thêm logging behavior nếu bạn có
+    // cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()); 
     // cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
 });
 
@@ -146,6 +177,8 @@ builder.Services.AddScoped<IExcelZipParser, ExcelZipParserService>();
 builder.Services.AddScoped<IExcelZipImportService, ExcelZipImportService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddHttpClient<IGeminiService, GeminiService>();
+
 
 builder.Services.AddAuthorization();
 
@@ -165,6 +198,14 @@ app.UseExceptionMiddleware();
 // Quan trọng: Phải gọi UseAuthentication() TRƯỚC UseAuthorization()
 app.UseAuthentication();
 app.UseAuthorization();
+
+// ── Trong app pipeline
+// Hangfire Dashboard (chỉ Admin)
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAdminAuthFilter() }
+});
+
 app.UseStaticFiles();
 app.MapControllers();
 app.MapGet("/ping", () => "pong");

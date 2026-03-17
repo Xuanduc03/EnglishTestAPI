@@ -74,15 +74,14 @@ namespace App.Application.Auth.Commands
             <p>Liên kết này sẽ hết hạn sau 1 giờ.</p>
             <p>Trân trọng,<br/>Hệ thống eStudy</p>";
 
-            var smtpHost = _config["Smtp:Host"];
-            // ✅ FIX: Dùng TryParse để an toàn
-            if (!int.TryParse(_config["Smtp:Port"], out var smtpPort))
+            var smtpHost = _config["EmailSettings:SmtpServer"];
+            var smtpUser = _config["EmailSettings:SmtpUsername"];
+            var smtpPass = _config["EmailSettings:SmtpPassword"];
+            var fromEmail = _config["EmailSettings:SenderEmail"];
+            if (!int.TryParse(_config["EmailSettings:SmtpPort"], out var smtpPort))
             {
-                smtpPort = 587; // Giá trị mặc định an toàn
+                smtpPort = 587;
             }
-            var smtpUser = _config["Smtp:User"];
-            var smtpPass = _config["Smtp:Pass"];
-            var fromEmail = _config["Smtp:From"];
 
             using var client = new SmtpClient(smtpHost, smtpPort)
             {

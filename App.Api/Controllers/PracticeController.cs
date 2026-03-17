@@ -62,7 +62,7 @@ namespace App.Api.Controllers
         /// POST /api/practice/{sessionId}/submit
         /// </summary>
         [HttpPost("{sessionId}/submit")]
-        public async Task<IActionResult> SubmitPractice( Guid sessionId, [FromBody] SubmitPracticeCommand request)
+        public async Task<IActionResult> SubmitPractice( Guid sessionId, [FromBody] SubmitPracticeRequest request)
         {
             var command = new SubmitPracticeCommand(
                 sessionId,
@@ -70,12 +70,7 @@ namespace App.Api.Controllers
                 request.TotalTimeSeconds
             );
             var result = await _mediator.Send(command);
-            return Ok(new
-            {
-                success = true,
-                data = result,
-                message = "Practice submitted successfully"
-            });
+            return Ok(new { success = true, data = result });
         }
 
         // ============================================
@@ -165,18 +160,15 @@ namespace App.Api.Controllers
         ///// Bỏ practice giữa chừng
         ///// POST /api/practice/{sessionId}/abandon
         ///// </summary>
-        //[HttpPost("{sessionId}/abandon")]
-        //public async Task<IActionResult> AbandonPractice(Guid sessionId)
-        //{
-        //    var command = new AbandonPracticeCommand(sessionId);
-        //    await _mediator.Send(command);
+        [HttpPost("{sessionId}/abandon")]
+        public async Task<IActionResult> AbandonPractice(Guid sessionId, [FromBody] AbandonPracticeCommand request)
+        {
+            if (sessionId != request.SessionId)
+                return BadRequest("Session ID mismatch");
 
-        //    return Ok(new
-        //    {
-        //        success = true,
-        //        message = "Practice abandoned"
-        //    });
-        //}
+            var result = await _mediator.Send(request);
+            return Ok(new { success = result, message = "Practice abandoned" });
+        }
 
         //// ============================================
         //// 8. RESUME PRACTICE
@@ -189,15 +181,9 @@ namespace App.Api.Controllers
         [HttpGet("{sessionId}/resume")]
         public async Task<IActionResult> ResumePractice(Guid sessionId)
         {
-            var query = new GetPracticeSessionQuery(sessionId);
+            var query = new GetPracticeSessionQuery(sessionId, UserId);
             var result = await _mediator.Send(query);
-
-            return Ok(new
-            {
-                success = true,
-                data = result,
-                message = "Practice session resumed"
-            });
+            return Ok(new { success = true, data = result, message = "Practice session resumed" });
         }
 
         /// <summary>
@@ -212,5 +198,17 @@ namespace App.Api.Controllers
             return Ok(new { success = true, data = result });
         }
 
+        /// <summary>
+        ///  GET /api/practice/{sessionId}/review trả về danh sách các câu hỏi kèm thông tin chi tiết.
+        /// </summary>
+        /// <param name="sessionId"></param>
+        /// <returns></returns>
+        [HttpGet("{sessionId}/review")]
+        public async Task<IActionResult> GetReview(Guid sessionId)
+        {
+            var query = new GetPracticeReviewQuery(sessionId);
+            var result = await _mediator.Send(query);
+            return Ok(new { success = true, data = result });
+        }
     }
 }

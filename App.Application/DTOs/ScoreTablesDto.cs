@@ -1,4 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using App.Domain.Entities;
+using AutoMapper;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 
 
 namespace App.Application.DTOs
@@ -40,5 +43,17 @@ namespace App.Application.DTOs
         /// <summary>Điểm tương ứng (value)</summary>
         [Range(0, 990, ErrorMessage = "Điểm phải từ 0 đến 990")]
         public int Score { get; set; }
+    }
+
+
+    public class ScoreTableProfile : Profile
+    {
+        public ScoreTableProfile()
+        {
+            // =====================================================
+            // Entity -> ScoreTableDto
+            // =====================================================
+          
+        }
     }
 }

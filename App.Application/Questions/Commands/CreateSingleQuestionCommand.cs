@@ -15,7 +15,7 @@ namespace App.Application.Questions.Commands
     {
         public Guid CategoryId { get; init; }
         public string? Content { get; init; } = string.Empty;
-        public string QuestionType { get; init; } = "SingleChoice";
+        public QuestionTypeEnum QuestionType { get; init; } = QuestionTypeEnum.SingleChoice;
         public Guid? DifficultyId { get; init; }
         public double DefaultScore { get; init; } = 1.0;
         public bool ShuffleAnswers { get; init; } = true;
@@ -32,6 +32,15 @@ namespace App.Application.Questions.Commands
 
         // Tags
         public List<string> Tags { get; init; } = [];
+
+        // dùng cho Writing/Speaking
+        public PromptTypeEnum? PromptType { get; init; }      // Task1/Task2/SpeakingPart1...
+        public int? MinWords { get; init; }                    // Giới hạn từ tối thiểu
+        public int? MaxWords { get; init; }                    // Giới hạn từ tối đa
+        public int? TimeLimitSeconds { get; init; }            // Giới hạn thời gian câu
+        public bool IsAiGraded { get; init; } = false;         // Bật AI chấm
+        public string? RubricJson { get; init; }               // Tiêu chí chấm
+        public string? SampleAnswer { get; init; }             // Đáp án mẫu
     }
 
     public class CreateAnswerWithFileDto
@@ -117,12 +126,12 @@ namespace App.Application.Questions.Commands
             CreateSingleQuestionCommand request,
             CancellationToken cancellationToken)
         {
+            // validate danh mục liên quan
             if (request.CategoryId == Guid.Empty)
                 throw new ValidationException("Vui lòng chọn danh mục");
 
             var categoryIds = new List<Guid> { request.CategoryId };
 
-            // 2. ✅ Check DifficultyId
             if (request.DifficultyId.HasValue && request.DifficultyId.Value != Guid.Empty)
             {
                 categoryIds.Add(request.DifficultyId.Value);
@@ -143,33 +152,50 @@ namespace App.Application.Questions.Commands
                 throw new ValidationException("Difficulty không tồn tại");
             }
 
-
-            if (request.Answers == null || !request.Answers.Any())
-                throw new ValidationException("Câu hỏi phải có ít nhất 1 đáp án");
-
             // TOEIC answer count validation
-            var expectedAnswerCount = category.Name.Contains("Part 2") ? 3 : TOEIC_ANSWER_COUNT;
-            if (request.Answers.Count != expectedAnswerCount)
-                throw new ValidationException(
-                    $"{category.Name} phải có chính xác {expectedAnswerCount} đáp án");
-
-            var correctCount = request.Answers.Count(a => a.IsCorrect);
-            if (correctCount != 1)
-                throw new ValidationException(
-                    $"Câu hỏi phải có ít nhất 1 đáp án đúng (Tìm thấy {correctCount})");
-
-            // Part-specific validations
-            if (category.Name.Contains("Part 1") || category.Name.Contains("Part 2"))
+            // chỉ validate answer count cho trắc nghiệm
+            if (request.QuestionType == QuestionTypeEnum.SingleChoice
+                || request.QuestionType == QuestionTypeEnum.MultipleChoice)
             {
-                if (request.AudioFile == null && request.AudioUrl == null)
-                    throw new ValidationException($"{category.Name} phải có Audio");
+                if (request.Answers == null || !request.Answers.Any())
+                    throw new ValidationException("Câu hỏi phải có ít nhất 1 đáp án");
+
+                var expectedAnswerCount = category.Name.Contains("Part 2") ? 3 : TOEIC_ANSWER_COUNT;
+                if (request.Answers.Count != expectedAnswerCount)
+                    throw new ValidationException(
+                        $"{category.Name} phải có chính xác {expectedAnswerCount} đáp án");
+
+                var correctCount = request.Answers.Count(a => a.IsCorrect);
+                if (correctCount != 1)
+                    throw new ValidationException(
+                        $"Câu hỏi phải có đúng 1 đáp án đúng (Tìm thấy {correctCount})");
+
+                // Part-specific validations
+                if (category.Name.Contains("Part 1") || category.Name.Contains("Part 2"))
+                {
+                    if (request.AudioFile == null && request.AudioUrl == null)
+                        throw new ValidationException($"{category.Name} phải có Audio");
+                }
+
+                if (category.Name.Contains("Part 1"))
+                {
+                    if (request.ImageFile == null)
+                        throw new ValidationException("Part 1 vui lòng thêm ít nhất 1 ảnh");
+                }
             }
 
-            if (category.Name.Contains("Part 1"))
-            {
-                if (request.ImageFile == null)
-                    throw new ValidationException("Part 1 vui lòng thêm ít nhất 1 ảnh");
-            }
+            //  Writing cần có content
+            if (request.QuestionType == QuestionTypeEnum.Writing
+                && string.IsNullOrWhiteSpace(request.Content))
+                throw new ValidationException("Writing question phải có nội dung đề bài");
+
+            //  Speaking cần có audio prompt (tuỳ chọn) hoặc content
+            if (request.QuestionType == QuestionTypeEnum.Speaking
+                && string.IsNullOrWhiteSpace(request.Content)
+                && request.AudioFile == null
+                && string.IsNullOrWhiteSpace(request.AudioUrl))
+                throw new ValidationException("Speaking question phải có nội dung hoặc audio prompt");
+
 
             return category;
         }
@@ -179,6 +205,9 @@ namespace App.Application.Questions.Commands
         #region -> 2check duplicate flow questions content and answer
         private async Task CheckDuplicatesAsync(CreateSingleQuestionCommand request, Category category, CancellationToken cancellation)
         {
+            if (request.QuestionType == QuestionTypeEnum.Writing
+                 || request.QuestionType == QuestionTypeEnum.Speaking)
+                return;
             var errors = new List<string>();
 
             //1 check content duplicate 
@@ -241,7 +270,7 @@ namespace App.Application.Questions.Commands
             if (errors.Any())
             {
                 throw new ValidationException(
-                    $"⚠️ Phát hiện trùng lặp:\n• {string.Join("\n• ", errors)}"
+                    $" Phát hiện trùng lặp:\n• {string.Join("\n• ", errors)}"
                 );
             }
         }
@@ -249,6 +278,7 @@ namespace App.Application.Questions.Commands
         //check content similarity
         private async Task<DuplicateInfo?> CheckContentDuplicateAsync(Guid CategoryId, string content, CancellationToken cancellation)
         {
+            
             var cleanContent = StripHtml(content).Trim().ToLower();
 
             if (cleanContent.Length < 10) return null;
@@ -261,12 +291,12 @@ namespace App.Application.Questions.Commands
                 .Select(q => new { q.Id, q.Content })
                 .ToListAsync(cancellation);
 
-            // ✅ OPTIMIZE: Check in memory to avoid multiple DB hits
+            //  OPTIMIZE: Check in memory to avoid multiple DB hits
             foreach (var exist in existingQuestions)
             {
                 var existingClean = StripHtml(exist.Content ?? "").Trim().ToLower();
 
-                // ✅ Quick length check before expensive calculation
+                //  Quick length check before expensive calculation
                 if (Math.Abs(cleanContent.Length - existingClean.Length) > cleanContent.Length * 0.2)
                     continue;
 
@@ -289,6 +319,7 @@ namespace App.Application.Questions.Commands
         // check trùng đáp án 
         private async Task<DuplicateInfo?> CheckAnswerSetDuplicateAsync(Guid categoryId, List<CreateAnswerWithFileDto> newAnswers, CancellationToken cancellation)
         {
+            if (newAnswers == null || !newAnswers.Any()) return null;
             var answerSignature = CreateAnswerSetSignature(newAnswers);
 
             // include answer
@@ -323,7 +354,7 @@ namespace App.Application.Questions.Commands
 
         #region // ========== CREATE MEDIA AND AUDIO TO CLOUDINARY ==========
 
-        // ✅ Upload result model
+        //  Upload result model
         private class UploadResults
         {
             public string? QuestionAudioUrl { get; set; }
@@ -332,7 +363,7 @@ namespace App.Application.Questions.Commands
             public string? QuestionImagePublicId { get; set; }
             public Dictionary<int, (string Url, string PublicId)> AnswerAudios { get; set; } = new();
 
-            // ✅ Store hashes for deduplication
+            //  Store hashes for deduplication
             public string? AudioFileHash { get; set; }
             public string? ImageFileHash { get; set; }
         }
@@ -409,6 +440,14 @@ namespace App.Application.Questions.Commands
                 ShuffleAnswers = request.ShuffleAnswers,
                 DefaultScore = request.DefaultScore,
                 Explanation = request.Explanation,
+                // question for sw
+                PromptTypes = request.PromptType,
+                MinWords = request.MinWords,
+                MaxWords = request.MaxWords,
+                TimeLimitSeconds = request.TimeLimitSeconds,
+                IsAiGraded = request.IsAiGraded,
+                RubricJson = request.RubricJson,
+                SampleAnswer = request.SampleAnswer,
                 IsActive = true,
                 CreatedAt = now,
                 UpdatedAt = now,
@@ -417,7 +456,7 @@ namespace App.Application.Questions.Commands
             // medias
             var medias = new List<QuestionMedia>();
             int orderIndex = 1;
-            if (!string.IsNullOrWhiteSpace(request.AudioUrl))
+            if (!string.IsNullOrWhiteSpace(uploadResults.QuestionAudioUrl))
             {
                 medias.Add(new QuestionMedia
                 {
@@ -431,7 +470,7 @@ namespace App.Application.Questions.Commands
                 });
             }
 
-            if (!string.IsNullOrWhiteSpace(request.ImageUrl))
+            if (!string.IsNullOrWhiteSpace(uploadResults.QuestionImageUrl))
             {
                 medias.Add(new QuestionMedia
                 {

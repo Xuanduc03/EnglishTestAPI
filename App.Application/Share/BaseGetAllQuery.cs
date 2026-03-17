@@ -54,7 +54,7 @@ namespace App.Application.Share
 
     public abstract class BaseQueryHandler<TRequest, TEntity, TDto>
         : IRequestHandler<TRequest, PaginatedResult<TDto>>
-        where TRequest : BaseGetAllQuery<TDto>  // ✅ Now TRequest automatically implements IRequest<PaginatedResult<TDto>>
+        where TRequest : BaseGetAllQuery<TDto> 
         where TEntity : class
     {
         protected readonly IAppDbContext _context;

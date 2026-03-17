@@ -2,7 +2,6 @@
 using App.Application.Interfaces;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System.Diagnostics;
 
 namespace App.Application.Questions.Queries
 {
@@ -10,7 +9,7 @@ namespace App.Application.Questions.Queries
         : IRequest<QuestionGroupDetailDto>;
 
     public class GetQuestionGroupDetailQueryHandler
-       : IRequestHandler<GetQuestionGroupDetailQuery, QuestionGroupDetailDto>
+        : IRequestHandler<GetQuestionGroupDetailQuery, QuestionGroupDetailDto>
     {
         private readonly IAppDbContext _context;
 
@@ -25,34 +24,37 @@ namespace App.Application.Questions.Queries
         {
             var group = await _context.QuestionGroups
                 .AsNoTracking()
+                .Include(g => g.Category)
+                .Include(g => g.Difficulty)
                 .Include(g => g.Media)
-                .Include(g => g.Questions)
-                    .ThenInclude(q => q.Answers)
-                .Include(g => g.Questions)
-                    .ThenInclude(q => q.Media)
+                .Include(g => g.Tags)
+                .Include(g => g.Questions.Where(q => !q.IsDeleted))
+                    .ThenInclude(q => q.Answers.OrderBy(a => a.OrderIndex))
+                .Include(g => g.Questions.Where(q => !q.IsDeleted))
+                    .ThenInclude(q => q.Media.OrderBy(m => m.OrderIndex))
                 .FirstOrDefaultAsync(g =>
-                    g.Id == request.Id &&
-                    !g.IsDeleted,
-                    cancellationToken);
-            // debug
-            foreach(var q in group.Questions)
-            {
-                Debug.WriteLine($"[test QUERY] Q {q.Id} - Answers count = {q.Answers.Count}");
-            }
-
-            if (group == null)
-                throw new KeyNotFoundException("Nhóm câu hỏi không tồn tại");
+                    g.Id == request.Id && !g.IsDeleted,
+                    cancellationToken)
+                ?? throw new KeyNotFoundException($"Nhóm câu hỏi {request.Id} không tồn tại");
 
             return new QuestionGroupDetailDto
             {
                 Id = group.Id,
                 CategoryId = group.CategoryId,
+                CategoryName = group.Category?.Name,
+                CategoryCode = group.Category?.Code,
+
                 Content = group.Content,
                 Explanation = group.Explanation,
-                DifficultyId = group.DifficultyId,
                 Transcript = group.Transcript,
                 MediaJson = group.MediaJson,
+
+                DifficultyId = group.DifficultyId,
+                DifficultyName = group.Difficulty?.Name,
+
                 IsActive = group.IsActive,
+                CreatedAt = group.CreatedAt,
+                UpdatedAt = group.UpdatedAt,
 
                 Media = group.Media
                     .OrderBy(m => m.OrderIndex)
@@ -61,21 +63,28 @@ namespace App.Application.Questions.Queries
                         Id = m.Id,
                         Url = m.Url,
                         MediaType = m.MediaType,
-                        OrderIndex = m.OrderIndex
+                        OrderIndex = m.OrderIndex,
                     })
                     .ToList(),
 
                 Questions = group.Questions
-                    .Where(q => !q.IsDeleted)
-                    .OrderBy(q => q.CreatedAt)
+                    .OrderBy(q => q.OrderIndex)
                     .Select(q => new GroupQuestionItemDto
                     {
                         Id = q.Id,
                         Content = q.Content,
                         QuestionType = q.QuestionType,
+                        PromptTypes = q.PromptTypes,
                         DifficultyId = q.DifficultyId,
                         DefaultScore = q.DefaultScore,
                         Explanation = q.Explanation,
+                        OrderIndex = q.OrderIndex,
+
+                        // ── IELTS fill-in fields
+                        IsAiGraded = q.IsAiGraded,
+                        SampleAnswer = q.SampleAnswer,
+                        MinWords = q.MinWords,
+                        MaxWords = q.MaxWords,
 
                         Media = q.Media
                             .OrderBy(m => m.OrderIndex)
@@ -84,7 +93,7 @@ namespace App.Application.Questions.Queries
                                 Id = m.Id,
                                 Url = m.Url,
                                 MediaType = m.MediaType,
-                                OrderIndex = m.OrderIndex
+                                OrderIndex = m.OrderIndex,
                             })
                             .ToList(),
 
@@ -96,13 +105,12 @@ namespace App.Application.Questions.Queries
                                 Content = a.Content,
                                 IsCorrect = a.IsCorrect,
                                 Feedback = a.Feedback,
-                                OrderIndex = a.OrderIndex
+                                OrderIndex = a.OrderIndex,
                             })
-                            .ToList()
+                            .ToList(),
                     })
-                    .ToList()
+                    .ToList(),
             };
         }
     }
-
 }

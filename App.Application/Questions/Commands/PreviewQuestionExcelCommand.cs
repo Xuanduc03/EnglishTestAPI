@@ -97,10 +97,17 @@ namespace App.Application.Questions.Commands
 
 
             var categories = await _context.Categories
-             .AsNoTracking()
-             .Where(c => c.IsActive && c.Name.Contains("Part"))
-             .ToDictionaryAsync(c => c.Name, c => new CategoryLookupDto
-             { Id = c.Id, Name = c.Name }, cancellationToken);
+                .AsNoTracking()
+                .Where(c => c.IsActive && c.Name.Contains("Part"))
+                .GroupBy(c => c.Name)
+                .ToDictionaryAsync(
+                    g => g.Key,
+                    g => new CategoryLookupDto
+                    {
+                        Id = g.First().Id,
+                        Name = g.First().Name
+                    },
+                    cancellationToken);
 
             var result = new PreviewQuestionResult
             {

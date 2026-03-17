@@ -1,20 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
+﻿// ============================================
+// FILE: App.Domain/Entities/PracticePartResult.cs
+// ============================================
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace App.Domain.Entities
 {
-    // ============================================
-    // PRACTICE PART RESULT - Kết quả từng Part
-    // ============================================
-
-    /// <summary>
-    /// Kết quả chi tiết từng Part trong practice session
-    /// Ví dụ: Practice Part 5 + Part 6 → 2 records
-    /// </summary>
     public class PracticePartResult : BaseEntity
     {
         public Guid PracticeAttemptId { get; set; }
@@ -26,29 +16,40 @@ namespace App.Domain.Entities
         // ============================================
         // PART INFO
         // ============================================
-
-        public int PartNumber { get; set; }  // 1-7 for TOEIC
-        public string PartName { get; set; }  // "Part 1", "Part 5"...
+        public int PartNumber { get; set; }   // 1-7 TOEIC L/R | 1-3 Writing | 1-3 Speaking
+        public string PartName { get; set; }  // "Part 1", "Writing Part 2"...
 
         // ============================================
-        // RESULTS
+        // RESULTS — Multiple Choice (Practice)
         // ============================================
-
         public int TotalQuestions { get; set; }
         public int CorrectAnswers { get; set; }
         public int IncorrectAnswers { get; set; }
         public int UnansweredQuestions { get; set; }
+        public double Percentage { get; set; }    // Accuracy %
 
-        public double Percentage { get; set; }  // Accuracy %
+        // ============================================
+        // RESULTS — AI Graded (Writing + Speaking)
+        // NULL khi chưa chấm xong
+        // ============================================
+        public double? AverageAiScore { get; set; }       // Điểm trung bình AI các câu trong part
+        public int PendingGradingCount { get; set; } = 0; // Số câu còn chờ AI chấm
+        public int FailedGradingCount { get; set; } = 0;  // Số câu AI chấm thất bại
+
+        // ============================================
+        // TIMING
+        // ============================================
         public int TotalTimeSeconds { get; set; }
 
         // ============================================
         // COMPUTED
         // ============================================
+        [NotMapped]
+        public double AverageTimePerQuestion =>
+            TotalQuestions > 0 ? (double)TotalTimeSeconds / TotalQuestions : 0;
 
         [NotMapped]
-        public double AverageTimePerQuestion => TotalQuestions > 0
-            ? (double)TotalTimeSeconds / TotalQuestions
-            : 0;
+        public bool IsFullyGraded =>
+            PendingGradingCount == 0 && AverageAiScore.HasValue;
     }
 }

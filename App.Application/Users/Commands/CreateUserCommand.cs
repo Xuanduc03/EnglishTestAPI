@@ -5,6 +5,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
+using App.Application.Services.Interface;
 
 namespace App.Application.Users.Commands
 {
@@ -56,18 +57,12 @@ namespace App.Application.Users.Commands
                         throw new InvalidOperationException("Số điện thoại đã được sử dụng");
                     }
                 }
+                var role = await _dbContext.Roles
+                        .FirstOrDefaultAsync(r => r.Id == dto.RoleId, cancellationToken);
 
-                // 5. Validate roles (nếu có)
-                if (dto.RoleIds != null && dto.RoleIds.Any())
+                if (role == null)
                 {
-                    var validRoles = await _dbContext.Roles
-                        .Where(r => dto.RoleIds.Contains(r.Id))
-                        .CountAsync(cancellationToken);
-
-                    if (validRoles != dto.RoleIds.Count)
-                    {
-                        throw new InvalidOperationException("Một hoặc nhiều Role không tồn tại");
-                    }
+                    throw new Exception("không tồn tại role");
                 }
 
                 // 6. Create user entity
@@ -85,17 +80,24 @@ namespace App.Application.Users.Commands
                     CreatedBy = request.CreatedBy
                 };
 
+                var roles = new UserRole
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    RoleId = dto.RoleId,
+                    CreatedAt = DateTime.UtcNow,
+                    AssignedBy = request.CreatedBy,
+                    UpdatedAt = DateTime.UtcNow,
+                    CreatedBy = request.CreatedBy
+                };
+
                 _dbContext.Users.Add(user);
+                _dbContext.UserRoles.Add(roles);
                 await _dbContext.SaveChangesAsync(cancellationToken);
 
                 await transaction.CommitAsync(cancellationToken);
 
                 return user.Id;
-            }
-            catch (InvalidOperationException)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                throw;
             }
             catch (Exception ex)
             {

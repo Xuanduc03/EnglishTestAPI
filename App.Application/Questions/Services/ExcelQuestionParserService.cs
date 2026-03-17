@@ -72,14 +72,8 @@ namespace App.Application.Questions.Services
             foreach (var f in mediaFiles)
             {
                 var nameWithExt = Path.GetFileName(f);
-                var nameWithoutExt = Path.GetFileNameWithoutExtension(f);
-
-                // ✅ Lưu CẢ 2 key: có extension và không có extension
-                var key1 = NormalizeFileName(nameWithExt);      // "audio1.mp3"
-                var key2 = NormalizeFileName(nameWithoutExt);   // "audio1"
-
-                if (!map.ContainsKey(key1)) map[key1] = f;
-                if (!map.ContainsKey(key2)) map[key2] = f; // ✅ Key backup
+                var key = NormalizeFileName(nameWithExt); // chỉ lưu key có extension
+                if (!map.ContainsKey(key)) map[key] = f;
             }
             return map;
         }
@@ -231,6 +225,7 @@ namespace App.Application.Questions.Services
                 partName.Contains("Part 4", StringComparison.OrdinalIgnoreCase))
             {
                 group.AudioFileName = ws.Cells[currentRow, 4].Value?.ToString()?.Trim();
+                group.ImageFileName = ws.Cells[currentRow, 5].Value?.ToString()?.Trim();
             }
             if (partName.Contains("Part 7", StringComparison.OrdinalIgnoreCase))
             {
@@ -239,9 +234,13 @@ namespace App.Application.Questions.Services
 
             // Xác định cột đánh số câu hỏi
             int questionNumberCol;
-            if (partName.Contains("Part 3") || partName.Contains("Part 4") || partName.Contains("Part 7"))
+            if (partName.Contains("Part 3") || partName.Contains("Part 4"))
             {
-                questionNumberCol = 5; // có cột media ở giữa
+                questionNumberCol = 6;
+
+            }else if (partName.Contains("Part 7"))
+            {
+                questionNumberCol = 5;
             }
             else
             {
@@ -261,27 +260,26 @@ namespace App.Application.Questions.Services
             // Gom thêm nhóm nếu có câu hỏi trong group 
             while (currentRow <= maxRow)
             {
-                if (partName.Contains("Part 7", StringComparison.OrdinalIgnoreCase))
+                if (partName.Contains("Part 3") || partName.Contains("Part 4") || partName.Contains("Part 7"))
                 {
                     var groupTitleText = ws.Cells[currentRow, 2].Text.Trim();
                     if (!string.IsNullOrEmpty(groupTitleText))
                     {
-                        break; // Group mới!
+                        break;
                     }
                 }
-                else // Part 3, 4, 6
+                else 
                 {
                     var sttText = ws.Cells[currentRow, 1].Text.Trim();
                     if (!string.IsNullOrEmpty(sttText) && int.TryParse(sttText, out _))
                     {
-                        break; // Group mới!
+                        break; 
                     }
                 }
 
                 // Kiểm tra QuestionNumber ở cột đúng
                 var qNumText = ws.Cells[currentRow, questionNumberCol].Text.Trim();
 
-                // Không có question number → kiểm tra dòng trống
                 if (!int.TryParse(qNumText, out var qNum))
                 {
                     if (IsRowEmpty(ws, currentRow, ws.Dimension?.Columns ?? 0))
@@ -292,11 +290,16 @@ namespace App.Application.Questions.Services
                     break;
                 }
 
+                // Detect group mới cho Part 6
+                if (partName.Contains("Part 6") && qNum == 1 && group.Questions.Count > 0)
+                {
+                    break;
+                }
 
                 var q = ParseQuestionInGroup(ws, currentRow, partName, qNum);
-
                 group.Questions.Add(q);
                 currentRow++;
+
             }
 
             group.EndRow = currentRow - 1;
@@ -315,11 +318,15 @@ namespace App.Application.Questions.Services
             };
 
             int startCol;
-            if (partName.Contains("Part 3") || partName.Contains("Part 4") || partName.Contains("Part 7"))
+            if (partName.Contains("Part 3") || partName.Contains("Part 4"))
             {
-                startCol = 6;
+                startCol = 7; 
             }
-            else // Part 6, 7
+            else if (partName.Contains("Part 7"))
+            {
+                startCol = 6; 
+            }
+            else // Part 6
             {
                 startCol = 5;
             }
@@ -350,9 +357,7 @@ namespace App.Application.Questions.Services
             {
                 q.Explanation = ws.Cells[row, c++].Value?.ToString()?.Trim();
                 // Tags ở cột cuối
-                // Có thể add nếu cần: q.Tags = ParseTags(ws.Cells[row, c].Value);
             }
-            // Có thể add nếu cần: q.Tags = ParseTags(ws.Cells[row, c].Value);
 
             return q;
         }
@@ -464,7 +469,7 @@ namespace App.Application.Questions.Services
             if (partName.Contains("Part 3", StringComparison.OrdinalIgnoreCase) ||
                 partName.Contains("Part 4", StringComparison.OrdinalIgnoreCase))
             {
-                return new() { "STT", "GroupTitle", "GroupContent", "AudioFileName", "QuestionNumber", "QuestionContent", "A", "B", "C", "D", "Correct", "Tags" };
+                return new() { "STT", "GroupTitle", "GroupContent", "AudioFileName", "ImageFileName", "QuestionNumber", "QuestionContent", "A", "B", "C", "D", "Correct", "Tags" };
 
             }
             else if (partName.Contains("Part 6", StringComparison.OrdinalIgnoreCase) ||

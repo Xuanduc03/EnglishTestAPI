@@ -49,7 +49,7 @@ namespace App.Application.DTOs.Questions
         public Guid CategoryId { get; set; } // Part mấy? Topic gì?
         public Guid? GroupId { get; set; }   // Có thuộc bài đọc nào không?
         public string? Content { get; set; }  // HTML nội dung câu hỏi
-        public string QuestionType { get; set; } // "SingleChoice", "Essay", "FillBlank"
+        public QuestionTypeEnum QuestionType { get; set; } // "SingleChoice", "Essay", "FillBlank"
         public bool IsActive { get; set; } = true;
         public string? Explanation { get; set; }
 
@@ -73,7 +73,7 @@ namespace App.Application.DTOs.Questions
         public Guid Id { get; set; }
         public Guid CategoryId { get; set; }
 
-        public string QuestionType { get; set; } = string.Empty;
+        public QuestionTypeEnum QuestionType { get; set; }
         public Guid? DifficultyId { get; set; }
         public string? DifficultyName { get; set; } // Hiển thị: "Hard", "Band 8.0"
         public double DefaultScore { get; set; }
@@ -86,7 +86,15 @@ namespace App.Application.DTOs.Questions
 
         // Media của câu hỏi (audio / image)
         public List<MediaDto> Media { get; set; } = [];
-
+        // ✅ Thêm Writing/Speaking fields
+        public string? PromptTypes { get; set; }
+        public int? MinWords { get; set; }
+        public int? MaxWords { get; set; }
+        public int? TimeLimitSeconds { get; set; }
+        public bool IsAiGraded { get; set; }
+        public string? RubricJson { get; set; }
+        public string? SampleAnswer { get; set; }
+        public string? MetadataJson { get; set; }
         // 4 đáp án
         public List<AnswerDto> Answers { get; set; } = [];
     }
@@ -95,7 +103,9 @@ namespace App.Application.DTOs.Questions
     {
         public Guid Id { get; set; }
         public Guid CategoryId { get; set; }
-
+        public string CategoryName { get; set; }
+        public string CategoryCode { get; set; }
+        public string DifficultyName { get; set; }
         // Nội dung group
         public string? Content { get; set; }          // Passage / hội thoại
         public string? Explanation { get; set; }
@@ -103,6 +113,10 @@ namespace App.Application.DTOs.Questions
         public Guid? DifficultyId { get; set; }
         public string? MediaJson { get; set; }
         public bool IsActive { get; set; }
+
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+
 
         // Media của group (audio / image)
         public List<MediaDto> Media { get; set; } = [];
@@ -114,11 +128,17 @@ namespace App.Application.DTOs.Questions
     {
         public Guid Id { get; set; }
 
-        public string QuestionType { get; set; } = string.Empty;
+        public QuestionTypeEnum QuestionType { get; set; }
+        public PromptTypeEnum? PromptTypes { get; set; }
         public Guid? DifficultyId { get; set; }
         public double DefaultScore { get; set; }
         public string Content { get; set; } = string.Empty;
         public string? Explanation { get; set; }
+        public int OrderIndex { get; set; }
+        public int? MinWords { get; set; } // Thêm cho Writing/Speaking (business: enforce word limit)
+        public int? MaxWords { get; set; }
+        public bool IsAiGraded { get; set; }
+        public string? SampleAnswer { get; set; }
         public List<MediaDto> Media { get; set; } = [];
         public List<AnswerDto> Answers { get; set; } = [];
     }
@@ -160,6 +180,37 @@ namespace App.Application.DTOs.Questions
         public List<MediaDto> Media { get; set; } = [];
     }
 
+    // hiển thị cho chức năng add section of exam
+    public class QuestionChildDto
+    {
+        public Guid Id { get; set; }
+        public string Content { get; set; }
+        public int AnswerCount { get; set; }
+        public string DifficultyName { get; set; }
+        public string QuestionType { get; set; }
+        public int OrderIndex { get; set; }
+    }
+
+    public class QuestionHierarchyItemDto
+    {
+        public string ItemType { get; set; } // "single" hoặc "group"
+
+        // Chung
+        public Guid? CategoryId { get; set; }
+        public string? CategoryName { get; set; }
+
+        // Nếu là single
+        public Guid? Id { get; set; }
+        public string? Content { get; set; }
+        public string? DifficultyName { get; set; }
+        public string? QuestionType { get; set; }
+        public int? AnswerCount { get; set; }
+
+        // Nếu là group
+        public Guid? GroupId { get; set; }
+        public string? GroupContent { get; set; }
+        public List<QuestionChildDto>? Children { get; set; }
+    }
 
     public class QuestionProfile : Profile
     {

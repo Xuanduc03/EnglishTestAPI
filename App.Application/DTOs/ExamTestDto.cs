@@ -14,15 +14,24 @@ namespace App.Application.DTOs
     {
         public Guid AttemptId { get; set; }
         public DateTime SubmittedAt { get; set; }
-        public double TotalScore { get; set; }
+
+        // Điểm TOEIC chuẩn (theo ScoreTable)
+        public int ListeningCorrect { get; set; }
+        public int ListeningScore { get; set; }   // 5 - 495
+        public int ReadingCorrect { get; set; }
+        public int ReadingScore { get; set; }     // 5 - 495
+        public int TotalScore { get; set; }       // 10 - 990
+
+        // Thống kê chung
         public double MaxScore { get; set; }
         public double ScorePercent { get; set; }
         public int TotalQuestions { get; set; }
         public int CorrectAnswers { get; set; }
         public int WrongAnswers { get; set; }
         public int SkippedAnswers { get; set; }
-        public int DurationSeconds { get; set; } // thời gian thực tế làm bài
-        public List<PartSummary> PartSummaries { get; set; } = new();
+        public int DurationSeconds { get; set; }
+
+        public List<PartSummary> PartSummaries { get; set; }
     }
 
     public class PartSummary
@@ -44,49 +53,43 @@ namespace App.Application.DTOs
         public DateTime SubmittedAt { get; set; }
         public int DurationSeconds { get; set; }
 
-        // ── Điểm thô (% đúng) ──────────────────────────────────
+        // Thống kê câu trả lời
         public int TotalQuestions { get; set; }
         public int CorrectAnswers { get; set; }
         public int WrongAnswers { get; set; }
         public int SkippedAnswers { get; set; }
-        public double RawScore { get; set; }        // tổng điểm thực tế
+        public double RawScore { get; set; }
         public double MaxScore { get; set; }
-        public double ScorePercent { get; set; }    // % câu đúng
+        public double ScorePercent { get; set; }
 
-        // ── Điểm TOEIC quy đổi (nếu là TOEIC exam) ─────────────
+        // Điểm TOEIC
         public bool IsToeic { get; set; }
-        public int? ListeningScore { get; set; }    // 5 – 495
-        public int? ReadingScore { get; set; }      // 5 – 495
-        public int? TotalToeicScore { get; set; }   // 10 – 990
+        public int? ListeningCorrect { get; set; }
+        public int? ListeningScore { get; set; }   // 5 - 495
+        public int? ReadingCorrect { get; set; }
+        public int? ReadingScore { get; set; }     // 5 - 495
+        public int? TotalToeicScore { get; set; }  // 10 - 990
 
-        // ── Kết quả từng section ────────────────────────────────
-        public List<SectionResultDto> SectionResults { get; set; } = new();
+        public List<SectionResultDto> SectionResults { get; set; }
     }
 
     public class SectionResultDto
     {
-        public string SectionName { get; set; }     // "Listening" | "Reading"
-        public string SkillType { get; set; }
+        public Guid SectionId { get; set; }
+        public string SectionName { get; set; }      // "Part 1", "Part 2"...
+        public string SkillCode { get; set; }         // "LISTENING" | "READING"
+        public string SkillName { get; set; }         // "Phần Nghe" | "Phần đọc hiểu"
         public int TotalQuestions { get; set; }
         public int CorrectAnswers { get; set; }
-        public double Score { get; set; }
-        public int? ToeicConvertedScore { get; set; }
-        public double AccuracyPercent => TotalQuestions > 0
-            ? Math.Round((double)CorrectAnswers / TotalQuestions * 100, 1)
-            : 0;
+        public int WrongAnswers { get; set; }
+        public double Score { get; set; }             // % đúng của Part
+        public int? ToeicConvertedScore { get; set; } // Điểm Skill chứa Part này
     }
 
     // End: GetEXamResultQuery
 
     /// DTO: GetExamPreviewQuery 
     /// Xem preview lại bài làm 
-    public class ExamReviewDto
-    {
-        public Guid AttemptId { get; set; }
-        public string ExamTitle { get; set; }
-        public int TotalQuestions { get; set; }
-        public List<ReviewSectionDto> Sections { get; set; } = new();
-    }
 
     public class ReviewSectionDto
     {
@@ -147,4 +150,100 @@ namespace App.Application.DTOs
         public DateTime StartedAt { get; set; }
         public DateTime LastUpdated { get; set; }
     }
+
+
+    // ============================================
+    // DTOs dùng chung
+    // ============================================
+
+    public class ExamAttemptHistoryDto
+    {
+        public Guid AttemptId { get; set; }
+        public Guid ExamId { get; set; }
+        public string ExamTitle { get; set; }
+        public string ExamCode { get; set; }
+        public DateTime StartedAt { get; set; }
+        public DateTime? SubmittedAt { get; set; }
+        public int? ActualTimeSeconds { get; set; }
+        public string Status { get; set; }
+
+        // Scoring
+        public int? TotalScore { get; set; }
+        public int? ListeningScore { get; set; }
+        public int? ReadingScore { get; set; }
+        public int TotalQuestions { get; set; }
+        public int CorrectAnswers { get; set; }
+        public int IncorrectAnswers { get; set; }
+        public int UnansweredQuestions { get; set; }
+        public double AccuracyPercent { get; set; }
+
+        // Section summaries
+        public List<ExamSectionSummaryDto> Sections { get; set; } = new();
+    }
+
+    public class ExamSectionSummaryDto
+    {
+        public Guid SectionId { get; set; }
+        public string SectionName { get; set; }
+        public int TotalQuestions { get; set; }
+        public int CorrectAnswers { get; set; }
+        public double AccuracyPercent { get; set; }
+    }
+
+    public class ExamReviewDto
+    {
+        public Guid AttemptId { get; set; }
+        public Guid ExamId { get; set; }
+        public string ExamTitle { get; set; }
+        public string ExamCode { get; set; }
+        public DateTime SubmittedAt { get; set; }
+        public int? TotalScore { get; set; }
+        public int TotalQuestions { get; set; }
+        public int CorrectAnswers { get; set; }
+        public List<ExamReviewSectionDto> Sections { get; set; } = new();
+    }
+
+    public class ExamReviewSectionDto
+    {
+        public Guid SectionId { get; set; }
+        public string SectionName { get; set; }
+        public int OrderIndex { get; set; }
+        public List<ExamReviewQuestionDto> Questions { get; set; } = new();
+    }
+
+    public class ExamReviewQuestionDto
+    {
+        public Guid ExamAnswerId { get; set; }
+        public Guid QuestionId { get; set; }
+        public int OrderIndex { get; set; }
+        public double Point { get; set; }
+        public string Content { get; set; }
+        public string QuestionType { get; set; }
+        public string? AudioUrl { get; set; }
+        public string? ImageUrl { get; set; }
+        public string? Explanation { get; set; }
+
+        // Trắc nghiệm
+        public Guid? SelectedAnswerId { get; set; }
+        public Guid? CorrectAnswerId { get; set; }
+        public bool IsCorrect { get; set; }
+        public bool IsAnswered { get; set; }
+        public List<ExamReviewAnswerDto> Answers { get; set; } = new();
+
+        // Writing/Speaking
+        public string? TextAnswer { get; set; }
+        public string? AiFeedback { get; set; }
+        public string? AiScoreDetailJson { get; set; }
+        public bool IsAiGraded { get; set; }
+        public string GradingStatus { get; set; }
+    }
+
+    public class ExamReviewAnswerDto
+    {
+        public Guid Id { get; set; }
+        public string Content { get; set; }
+        public bool IsCorrect { get; set; }
+        public int OrderIndex { get; set; }
+    }
+
 }

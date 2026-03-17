@@ -256,6 +256,23 @@ namespace App.Api.Controllers
         }
 
 
+        // GET /api/exams/{examId}/preview
+        // Xem trước toàn bộ đề thi
+        [HttpGet("{examId:guid}/preview")]
+        public async Task<IActionResult> Preview(
+            Guid examId,
+            [FromQuery] bool showCorrectAnswers = true)
+        {
+            var query = new GetExamPreviewQuery
+            {
+                ExamId = examId,
+                ShowCorrectAnswers = showCorrectAnswers
+            };
+            var result = await _mediator.Send(query);
+            return Ok(new { success = true, data = result });
+        }
+
+
 
         // POST /api/exams/{examId}/publish
         [HttpPost("{examId:guid}/publish")]

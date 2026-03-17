@@ -1,4 +1,5 @@
 ﻿using App.Application.DTOs.Questions;
+using App.Application.ExamDigitize.Commands;
 using App.Application.Questions.Commands;
 using App.Application.Questions.Queries;
 using MediatR;
@@ -57,13 +58,56 @@ namespace App.Api.Controllers
 
         // tạo câu hỏi nhóm
         [HttpPost("groups")]
-        public async Task<IActionResult> CreateQuestionGroup([FromForm] CreateQuestionGroupCommand command)
+        public async Task<IActionResult> CreateQuestionGroup(
+     [FromForm] CreateQuestionGroupRequest request)
         {
+            // Parse QuestionsJson
+            List<CreateQuestionDto> questions = [];
 
+            if (!string.IsNullOrWhiteSpace(request.QuestionsJson))
+            {
+                try
+                {
+                    var json = request.QuestionsJson.Trim();
+                    questions = System.Text.Json.JsonSerializer.Deserialize<List<CreateQuestionDto>>(
+                        json,
+                        new System.Text.Json.JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true,
+                            AllowTrailingCommas = true,
+                            ReadCommentHandling = System.Text.Json.JsonCommentHandling.Skip,
+                        }) ?? [];
+                }
+                catch (System.Text.Json.JsonException ex)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"QuestionsJson không hợp lệ: {ex.Message}",
+                        // Log raw để debug
+                        receivedJson = request.QuestionsJson
+                    });
+                }
+            }
+
+            var command = new CreateQuestionGroupCommand
+            {
+                CategoryId = request.CategoryId,
+                GroupContent = request.GroupContent,
+                GroupAudioUrl = request.GroupAudioUrl,
+                GroupImageUrl = request.GroupImageUrl,
+                DifficultyId = request.DifficultyId,
+                Explanation = request.Explanation,
+                Transcript = request.Transcript,
+                MediaJson = request.MediaJson,
+                GroupAudioFile = request.GroupAudioFile,
+                GroupImageFile = request.GroupImageFile,
+                Tags = request.Tags ?? [],
+                Questions = questions,
+            };
 
             var result = await _mediator.Send(command);
             return Ok(new { success = true, data = result, message = "Tạo câu hỏi nhóm thành công" });
-
         }
 
 
@@ -83,7 +127,7 @@ namespace App.Api.Controllers
         {
 
             var result = await _mediator.Send(command);
-            return Ok(new { sucess = true, data = result, message = "Tạo câu hỏi đơn thành công" });
+            return Ok(new { success = true, data = result, message = "Tạo câu hỏi đơn thành công" });
 
         }
 
@@ -110,6 +154,15 @@ namespace App.Api.Controllers
         {
             var success = await _mediator.Send(new DeleteQuestionGroupCommand(id, hardDelete));
             return NoContent();
+        }
+
+        // GET /api/questions/hierarchy
+        // chỉ dùng cho query câu hỏi nhóm 
+        [HttpGet("hierarchy")]
+        public async Task<IActionResult> GetHierarchy([FromQuery] GetQuestionsHierarchyQuery query)
+        {
+            var result = await _mediator.Send(query);
+            return Ok(new { success = true, data = result });
         }
 
 
@@ -156,6 +209,32 @@ namespace App.Api.Controllers
             );
 
             return Ok(result);
+        }
+
+        /// OCR QUESTION MODULE 
+        /// POST /api/exam-digitize/extract
+        /// Upload ảnh → Gemini extract → trả JSON preview
+        [HttpPost("extract")]
+        public async Task<IActionResult> Extract(
+            [FromForm] IFormFile file,
+            [FromForm] string examType = "IELTS_READING")
+        {
+            var result = await _mediator.Send(new UploadAndExtractCommand
+            {
+                File = file,
+                ExamType = examType,
+            });
+
+            return Ok(new { success = true, data = result });
+        }
+
+        /// POST /api/exam-digitize/save
+        /// Admin confirm → lưu vào DB
+        [HttpPost("save-extract")]
+        public async Task<IActionResult> Save([FromBody] SaveDigitizedExamCommand command)
+        {
+            var groupId = await _mediator.Send(command);
+            return Ok(new { success = true, data = new { groupId } });
         }
     }
 }

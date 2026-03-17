@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace App.Application.Practices.Queries
 {
-    public record GetPracticeSessionQuery(Guid SessionId) : IRequest<PracticeSessionDto>;
+    public record GetPracticeSessionQuery(Guid SessionId, Guid UserId) : IRequest<PracticeSessionDto>;
 
     public class GetPracticeSessionQueryHandler : IRequestHandler<GetPracticeSessionQuery, PracticeSessionDto>
     {
@@ -32,28 +32,34 @@ namespace App.Application.Practices.Queries
             if (attempt.Status == AttemptStatus.Submitted)
                 throw new InvalidOperationException("Bài tập này đã hoàn thành, không thể làm tiếp.");
 
-            // 2. Load questions theo đúng thứ tự
+            if (attempt.UserId != request.UserId)
+                throw new UnauthorizedAccessException("Bạn không có quyền truy cập phiên làm bài này.");
+
+            // 2. Sort answers theo OrderIndex — đây là thứ tự thực tế của câu hỏi trong bài
             var answerData = attempt.Answers.OrderBy(a => a.OrderIndex).ToList();
             var questionIds = answerData.Select(a => a.QuestionId).ToList();
 
+            // 3. Load questions
             var questions = await _context.Questions
                 .AsNoTracking()
                 .Where(q => questionIds.Contains(q.Id))
                 .Include(q => q.Answers)
                 .Include(q => q.Media)
                 .Include(q => q.Group).ThenInclude(g => g.Media)
-                // Bỏ ThenInclude(g => g.Questions) → gây cycle với AsNoTracking
                 .ToListAsync(cancellationToken);
 
             var questionDict = questions.ToDictionary(q => q.Id);
             var questionCategoryMap = questions.ToDictionary(q => q.Id, q => q.CategoryId);
 
-            var groupMeta = questions
-                .Where(q => q.GroupId.HasValue)
-                .GroupBy(q => q.GroupId!.Value)
-                .ToDictionary(g => g.Key, g => g.OrderBy(q => q.CreatedAt).ToList());
+            var groupOrderMap = answerData
+                .Where(a => questionDict.TryGetValue(a.QuestionId, out var q) && q.GroupId.HasValue)
+                .GroupBy(a => questionDict[a.QuestionId].GroupId!.Value)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderBy(a => a.OrderIndex).ToList() 
+                );
 
-            // 3. Build session
+            // 4. Build session
             var session = new PracticeSessionDto
             {
                 SessionId = attempt.Id,
@@ -63,7 +69,7 @@ namespace App.Application.Practices.Queries
                 Parts = new List<PracticePartDto>()
             };
 
-            // 4. Chia đúng part theo PartResults đã lưu
+            // 5. Build parts theo PartResults
             foreach (var partResult in attempt.PartResults.OrderBy(pr => pr.PartNumber))
             {
                 var partQuestionIds = questionCategoryMap
@@ -73,7 +79,7 @@ namespace App.Application.Practices.Queries
 
                 var partAnswerData = answerData
                     .Where(a => partQuestionIds.Contains(a.QuestionId))
-                    .ToList();
+                    .ToList(); // đã OrderBy OrderIndex từ bước 2
 
                 if (!partAnswerData.Any()) continue;
 
@@ -102,13 +108,18 @@ namespace App.Application.Practices.Queries
                         IsCorrect = null,
                     };
 
+                    // FIX: Group info — dùng groupOrderMap (sort theo OrderIndex) thay vì CreatedAt
                     if (q.GroupId.HasValue && q.Group != null
-                        && groupMeta.TryGetValue(q.GroupId.Value, out var siblings))
+                        && groupOrderMap.TryGetValue(q.GroupId.Value, out var groupAnswers))
                     {
                         dto.GroupContent = q.Group.Content;
-                        dto.TotalQuestionsInGroup = siblings.Count;
-                        dto.QuestionIndexInGroup = siblings.FindIndex(x => x.Id == q.Id) + 1;
                         dto.GroupMedia = q.Group.Media.OrderBy(m => m.OrderIndex).Select(MapGroupMedia).ToList();
+                        dto.TotalQuestionsInGroup = groupAnswers.Count;
+
+                        // FIX: index trong group = vị trí của answer này trong groupAnswers (đã sort đúng)
+                        var idxInGroup = groupAnswers.FindIndex(a => a.QuestionId == q.Id);
+                        dto.QuestionIndexInGroup = idxInGroup >= 0 ? idxInGroup + 1 : 1;
+
                     }
 
                     questionDtos.Add(dto);

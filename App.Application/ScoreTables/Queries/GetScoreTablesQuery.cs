@@ -9,55 +9,47 @@ namespace App.Application.ScoreTables.Queries
 {
     // ============================================================
     // QUERY: Lấy danh sách bảng điểm
-    // GET /api/score-tables?examId=...&categoryId=...&keyword=...
+    // GET /api/score-tables?skillCategoryId=...&keyword=...
     // ============================================================
     public record GetScoreTablesQuery : BaseGetAllQuery<ScoreTableListDto>
     {
-        public Guid? ExamId { get; init; }
-        public Guid? CategoryId { get; init; } 
-        public string? Keyword { get; init; } 
+        // Filter theo Skill: LISTENING hoặc READING
+        public Guid? SkillCategoryId { get; init; }
+        public string? Keyword { get; init; }
     }
 
     public class GetScoreTablesQueryHandler
         : BaseQueryHandler<GetScoreTablesQuery, ScoreTable, ScoreTableListDto>
     {
-        public GetScoreTablesQueryHandler(IAppDbContext context, IMapper mapper) : base(context, mapper)
-        {
-        }
+        public GetScoreTablesQueryHandler(IAppDbContext context, IMapper mapper)
+            : base(context, mapper) { }
 
-        protected override IQueryable<ScoreTable> BuildQuery(IQueryable<ScoreTable> query, GetScoreTablesQuery request)
+        protected override IQueryable<ScoreTable> BuildQuery(
+            IQueryable<ScoreTable> query, GetScoreTablesQuery request)
         {
-            // 1. Join bảng để lấy thông tin hiển thị (cho AutoMapper)
             query = query
-                .Include(s => s.Exam)
-                .Include(s => s.Category) // Quan trọng: Để lấy CategoryName
+                .Include(s => s.SkillCategory)  // Lấy tên Skill (LISTENING/READING)
+                .Include(s => s.Entries)         // Lấy danh sách quy đổi
                 .Where(s => !s.IsDeleted);
 
-            // 2. Filter theo ExamId
-            if (request.ExamId.HasValue)
-            {
-                query = query.Where(s => s.ExamId == request.ExamId.Value);
-            }
+            // Filter theo Skill
+            if (request.SkillCategoryId.HasValue)
+                query = query.Where(s => s.SkillCategoryId == request.SkillCategoryId.Value);
 
-            // 3. Filter theo CategoryId (Thay thế SkillType cũ)
-            if (request.CategoryId.HasValue)
-            {
-                query = query.Where(s => s.CategoryId == request.CategoryId.Value);
-            }
+            // Filter theo IsActive
+            query = query.Where(s => s.IsActive);
 
-            // 4. Filter Keyword (Tìm theo tên đề hoặc tên kỹ năng)
+            // Tìm theo tên bảng hoặc tên Skill
             if (!string.IsNullOrWhiteSpace(request.Keyword))
             {
                 var key = request.Keyword.Trim();
                 query = query.Where(s =>
-                    EF.Functions.Like(s.Exam.Title, $"%{key}%") ||
-                    EF.Functions.Like(s.Category.Name, $"%{key}%")
+                    EF.Functions.Like(s.Name, $"%{key}%") ||
+                    EF.Functions.Like(s.SkillCategory.Name, $"%{key}%")
                 );
             }
 
-            // Mặc định sắp xếp mới nhất lên đầu (nếu chưa có sort)
             query = query.OrderByDescending(s => s.CreatedAt);
-
             return query;
         }
     }

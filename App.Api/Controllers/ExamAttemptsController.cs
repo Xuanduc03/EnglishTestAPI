@@ -1,6 +1,8 @@
 ﻿using App.Application.ExamAttempts.Commands;
+using App.Application.ExamAttempts.Queries;
 using App.Application.Practices.Queries;
 using App.Application.Services.Interface;
+using App.Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -30,6 +32,7 @@ namespace App.Api.Controllers
         [HttpPost("start")]
         public async Task<IActionResult> StartExamAttempts([FromBody]StartExamCommand command)
         {
+            command.UserId = _currentUserService.UserId ?? throw new UnauthorizedAccessException("User not found"); 
             var result = await _mediator.Send(command);
             return Ok(new { success = true, data = result });
         }
@@ -40,7 +43,12 @@ namespace App.Api.Controllers
         [HttpPost("{attemptId}/submit")]
         public async Task<IActionResult> Submit(Guid attemptId)
         {
-            var command = new SubmitExamCommand();
+            var UserId = _currentUserService.UserId ?? throw new UnauthorizedAccessException("User not found");
+            var command = new SubmitExamCommand
+            {
+                AttemptId = attemptId,
+                UserId = UserId,
+            };
             var result = await _mediator.Send(command);
             return Ok(new { success = true, data = result });
         }
@@ -58,31 +66,65 @@ namespace App.Api.Controllers
         }
 
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="attemptId"></param>
-        /// <returns></returns>
-        [HttpGet("{attemptId}/resume")]
-        public async Task<IActionResult> ResumeExam(Guid attemptId)
+        // ============================================
+        // GET /api/exam-attempts/history
+        // Lịch sử thi của user hiện tại
+        // ============================================
+        [HttpGet("history")]
+        public async Task<IActionResult> GetHistory(
+            [FromQuery] int pageIndex = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? status = null)
         {
-            var command = new ResumeExamCommand(attemptId);
-            var result = await _mediator.Send(command);
+            var query = new GetExamHistoryQuery
+            {
+                UserId = _currentUserService.UserId!.Value,
+                PageIndex = pageIndex,
+                PageSize = pageSize,
+                Status = status,
+            };
+            var result = await _mediator.Send(query);
             return Ok(new { success = true, data = result });
         }
 
-
+        // ============================================
+        // GET /api/exam-attempts/{attemptId}/review
+        // Xem lại chi tiết bài thi
+        // ============================================
+        [HttpGet("{attemptId:guid}/review")]
+        public async Task<IActionResult> GetReview(Guid attemptId)
+        {
+            var result = await _mediator.Send(new GetExamReviewQuery(attemptId));
+            return Ok(new { success = true, data = result });
+        }
 
         /// <summary>
-        /// Endpoint: GET /api/exam-attempts/in-progress
-        /// Trả về danh sách các bài thi đang làm dở của user hiện tại, kèm tiêu đề và tiến độ.
+        /// GET /api/exam-attempts/{attemptId}/result
+        /// Xem kết quả sau khi nộp bài (điểm TOEIC + thống kê từng Part)
         /// </summary>
-        /// <returns></returns>
-        [HttpGet("in-progress")]
-        public async Task<IActionResult> GetInProgressAttempts()
+        [HttpGet("{attemptId:guid}/result")]
+        public async Task<IActionResult> GetResult(Guid attemptId)
         {
-            var query = new GetInProgressPracticesQuery();
-            var result = await _mediator.Send(query);
+            var result = await _mediator.Send(new GetExamResultQuery
+            {
+                AttemptId = attemptId,
+            });
+            return Ok(new { success = true, data = result });
+        }
+
+        /// <summary>
+        /// Phân tích điểm yếu/mạnh theo skill 
+        /// </summary>
+        /// <param name="lastN"></param>
+        /// <returns></returns>
+        [HttpGet("analytics")]
+        public async Task<IActionResult> GetAnalytics([FromQuery] int lastN = 5)
+        {
+            var result = await _mediator.Send(new GetExamAnalyticsQuery
+            {
+                UserId = _currentUserService.UserId!.Value,
+                LastN = lastN,
+            });
             return Ok(new { success = true, data = result });
         }
     }

@@ -24,6 +24,7 @@ namespace App.Application.DTOs
         public string Status { get; set; }      // "Draft", "Published"
         public int QuestionCount { get; set; }  // Tổng số câu hỏi
         public int Version { get; set; }
+        public int ActiveUserCount { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 
@@ -62,6 +63,8 @@ namespace App.Application.DTOs
 
         public decimal Point { get; set; }      // Điểm số của câu này trong đề
         public int OrderIndex { get; set; }    // Thứ tự câu (1, 2, 3...)
+        public Guid? GroupId { get; set; }
+        public string? GroupContentPreview { get; set; }
     }
 
     #region CRUD Exam DTO
@@ -173,13 +176,15 @@ namespace App.Application.DTOs
         public int OrderIndex { get; set; }
         public double Point { get; set; }
         public string Content { get; set; }
-        public string QuestionType { get; set; }
+        public QuestionTypeEnum QuestionType { get; set; }
         public string? AudioUrl { get; set; }
         public string? ImageUrl { get; set; }
         public string? Explanation { get; set; }
         public string? ExplanationVi { get; set; }
-
-        // ✅ Preview thêm IsCorrect — Student KHÔNG có field này
+        public Guid? GroupId { get; set; }
+        public string? GroupContent { get; set; }
+        public string? GroupAudioUrl { get; set; }
+        public string? GroupImageUrl { get; set; }
         public List<PreviewAnswerOption> Answers { get; set; } = new();
     }
 
@@ -214,7 +219,13 @@ namespace App.Application.DTOs
             CreateMap<ExamQuestion, ExamQuestionDto>()
                 .ForMember(d => d.ContentPreview, opt => opt.MapFrom(s => s.Question.Content))
                 .ForMember(d => d.QuestionType, opt => opt.MapFrom(s => s.Question.QuestionType))
-                .ForMember(d => d.DifficultyName, opt => opt.MapFrom(s => s.Question.Difficulty.Name));
+                .ForMember(d => d.DifficultyName, opt => opt.MapFrom(s => s.Question.Difficulty.Name))
+                 .ForMember(d => d.GroupId,
+                    opt => opt.MapFrom(s => s.Question.GroupId))
+                .ForMember(d => d.GroupContentPreview,
+                    opt => opt.MapFrom(s => s.Question.Group != null
+                        ? s.Question.Group.Content.Substring(0, Math.Min(80, s.Question.Group.Content.Length))
+                        : null));
 
             // 5. Map Create -> Entity
             CreateMap<CreateExamDto, Exam>();

@@ -39,5 +39,11 @@ namespace App.Application.Interfaces
         public DbSet<PracticeAttempt> PracticeAttempts { get; set; }
         public DbSet<PracticeAnswer> PracticeAnswers { get; set; }
         public DbSet<PracticePartResult> PracticePartResults { get; set; }
+
+        public DbSet<UserStatistics> UserStatistics { get; set; }
+
+        public DbSet<VocabularyWord> VocabularyWords { get; set; }
+        public DbSet<UserVocabularyProgress> UserVocabularyProgresses { get; set; }
+
     }
 }

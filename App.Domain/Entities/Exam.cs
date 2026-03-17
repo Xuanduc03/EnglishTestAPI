@@ -51,9 +51,8 @@ namespace App.Domain.Entities
         public bool IsActive { get; set; } = true;
 
         // Relations
-        public virtual ICollection<ExamAttempt> Attempts { get; set; } // 1 bài thi có nhiều lượt thi
+        public virtual ICollection<ExamAttempt> Attempts { get; set; }
         public virtual ICollection<ExamSection> Sections { get; set; }
-        public virtual ICollection<ScoreTable> ScoreTables { get; set; }
     }
 
     public enum ExamStatus

@@ -104,7 +104,7 @@ namespace App.Application.Exams.Commands
                         Id = Guid.NewGuid(),
                         ExamId = newExam.Id,
                         ExamSectionId = newSection.Id,
-                        QuestionId = sourceQuestion.QuestionId, // Giữ nguyên QuestionId
+                        QuestionId = sourceQuestion.QuestionId,
                         QuestionNo = sourceQuestion.QuestionNo,
                         Point = sourceQuestion.Point,
                         OrderIndex = sourceQuestion.OrderIndex,

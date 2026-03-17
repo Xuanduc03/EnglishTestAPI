@@ -25,30 +25,22 @@ namespace App.Application.Categories.Queries
                     c.IsActive
                 );
 
-            var prefixRules = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                {"LEVEL", "LV_" },
-                {"SKILL", "Part" }
-            };
 
             if (!string.IsNullOrEmpty(request.CodeType))
             {
-                query = query.Where(c => c.CodeType == request.CodeType);
-
-                if (prefixRules.TryGetValue(request.CodeType, out var prefix))
-                {
-                    query = query.Where(c => c.Code.StartsWith(prefix));
-                }
+                query = query.Where(c => c.CodeType == request.CodeType.ToUpper());
             }
 
+
             return await query
-                .OrderBy(c => c.CodeType)
-                .ThenBy(c => c.Name)
-                .Select(c => new CategorySelectDto
-                {
-                    label = $"{c.Name} ({c.CodeType})",
-                    value = c.Id
-                }).ToListAsync(cancellation);
+         .OrderBy(c => c.CodeType)
+         .ThenBy(c => c.Name)
+         .Select(c => new CategorySelectDto
+         {
+             label = $"{c.Name} ({c.CodeType})",
+             value = c.Id
+         })
+         .ToListAsync(cancellation);
 
         }
     }

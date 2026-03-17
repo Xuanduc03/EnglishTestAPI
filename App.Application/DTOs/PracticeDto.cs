@@ -1,4 +1,5 @@
-﻿using App.Domain.Entities;
+﻿using App.Application.Practices.Commands;
+using App.Domain.Entities;
 using AutoMapper;
 using System;
 using System.Collections.Generic;
@@ -36,8 +37,8 @@ namespace App.Application.DTOs
     {
         public Guid PartId { get; set; } // CategoryId
         public string PartName { get; set; } // "Part 1", "Part 2"...
-        public int PartNumber { get; set; } // ✅ THÊM: 1-7 để dễ identify
-        public string? PartDescription { get; set; } // ✅ THÊM: "Photographs", "Conversations"...
+        public int PartNumber { get; set; } // THÊM: 1-7 để dễ identify
+        public string? PartDescription { get; set; } // THÊM: "Photographs", "Conversations"...
         public List<PracticeQuestionDto> Questions { get; set; } = new();
     }
 
@@ -46,7 +47,7 @@ namespace App.Application.DTOs
     {
         public Guid QuestionId { get; set; }
         public int OrderIndex { get; set; } // Thứ tự trong part: 1,2,3...
-        public int QuestionNumber { get; set; } // ✅ THÊM: Số câu tổng thể 1-200
+        public int QuestionNumber { get; set; } // THÊM: Số câu tổng thể 1-200
 
         // ==================== GROUP QUESTION INFO ====================
         // Nếu là group question (Part 3,4,6,7)
@@ -59,11 +60,11 @@ namespace App.Application.DTOs
         public string? AudioUrl { get; set; }
         public string? ImageUrl { get; set; }
 
-        // ✅ THÊM: Group metadata
+        // THÊM: Group metadata
         public int? TotalQuestionsInGroup { get; set; } // 3 cho P3/P4, 4 cho P6, 2-5 cho P7
         public int? QuestionIndexInGroup { get; set; } // Vị trí: 1/3, 2/3, 3/3
 
-        // ✅ THÊM: Multiple passages support (Part 7 Double/Triple)
+        // THÊM: Multiple passages support (Part 7 Double/Triple)
         public List<GroupPassageDto>? Passages { get; set; }
 
         // ==================== QUESTION CONTENT ====================
@@ -76,10 +77,16 @@ namespace App.Application.DTOs
         // ==================== USER STATE ====================
         public Guid? SelectedAnswerId { get; set; }
         public bool? IsCorrect { get; set; }
-        public bool IsMarkedForReview { get; set; } // ✅ THÊM: Đánh dấu để review
+        public bool IsMarkedForReview { get; set; } // THÊM: Đánh dấu để review
+    }
+    // Dto cho request submit practice
+    public class SubmitPracticeRequest
+    {
+        public List<SubmitAnswerItem> Answers { get; set; }
+        public int TotalTimeSeconds { get; set; }
     }
 
-    // ✅ THÊM: Support cho Part 7 Multiple Passages
+    // THÊM: Support cho Part 7 Multiple Passages
     public class GroupPassageDto
     {
         public Guid Id { get; set; }
@@ -115,7 +122,7 @@ namespace App.Application.DTOs
         public Guid SessionId { get; set; }
         public Guid QuestionId { get; set; }
         public Guid? AnswerId { get; set; }
-        public bool? IsMarkedForReview { get; set; } // ✅ THÊM
+        public bool? IsMarkedForReview { get; set; } // THÊM
     }
 
     public class PracticeResultDto
@@ -124,23 +131,26 @@ namespace App.Application.DTOs
         public int TotalQuestions { get; set; }
         public int CorrectAnswers { get; set; }
         public int IncorrectAnswers { get; set; }
-        public int UnansweredQuestions { get; set; } // ✅ THÊM
+        public int UnansweredQuestions { get; set; } // THÊM
         public double Score { get; set; }
-        public double AccuracyPercentage { get; set; } // ✅ THÊM
-        public TimeSpan TotalTime { get; set; } // ✅ THÊM
+        public double AccuracyPercentage { get; set; } // THÊM
+        public TimeSpan TotalTime { get; set; }
+
+        public int PendingAiGrading { get; set; }
+        public bool IsFullyGraded { get; set; }
         public Dictionary<string, PartResultDto> PartResults { get; set; } = new();
     }
 
     public class PartResultDto
     {
         public string PartName { get; set; }
-        public int PartNumber { get; set; } // ✅ THÊM
+        public int PartNumber { get; set; } // THÊM
         public int Total { get; set; }
         public int Correct { get; set; }
-        public int Incorrect { get; set; } // ✅ THÊM
-        public int Unanswered { get; set; } // ✅ THÊM
+        public int Incorrect { get; set; } // THÊM
+        public int Unanswered { get; set; } // THÊM
         public double Percentage { get; set; }
-        public double AverageTimePerQuestion { get; set; } // ✅ THÊM: seconds
+        public double AverageTimePerQuestion { get; set; } // THÊM: seconds
     }
 
     // ==================== DTO trạng thái của practice đang làm ====================
@@ -155,5 +165,33 @@ namespace App.Application.DTOs
         public DateTime LastUpdated { get; set; }
         public int? TimeLimitSeconds { get; set; }
         public int? ActualTimeSeconds { get; set; }
+    }
+
+    // pratice review dto
+    public class PracticeReviewDto
+    {
+        public Guid SessionId { get; set; }
+        public string Title { get; set; }
+        public List<PracticeReviewQuestionDto> Questions { get; set; }
+    }
+
+    public class PracticeReviewQuestionDto
+    {
+        public Guid QuestionId { get; set; }
+        public string Content { get; set; }
+        public int OrderIndex { get; set; }
+        public Guid? SelectedAnswerId { get; set; }
+        public Guid? CorrectAnswerId { get; set; }
+        public bool IsCorrect { get; set; }
+        public string Explanation { get; set; }
+        public List<PracticeReviewAnswerDto> Answers { get; set; } // các đáp án
+    }
+
+    public class PracticeReviewAnswerDto
+    {
+        public Guid AnswerId { get; set; }
+        public string Content { get; set; }
+        public bool IsCorrect { get; set; }
+        public int OrderIndex { get; set; }
     }
 }

@@ -48,12 +48,11 @@ namespace App.Application.Questions.Services
                     "ParseResult còn lỗi – không thể import");
 
             //   1️⃣ Upload media TRƯỚC, BÊN NGOÀI transaction
-            IDictionary<string, string> uploadedMediaUrls;
+            IDictionary<string, (string Url, string PublicId)> uploadedMediaUrls;
             try
             {
-                uploadedMediaUrls = await UploadAllMediaAsync(
-                    parseResult.MediaIndex,
-                    ct);
+
+                uploadedMediaUrls = await UploadAllMediaAsync(parseResult.MediaIndex, ct);
 
                 //   Validate upload thành công
                 if (uploadedMediaUrls.Count != parseResult.MediaIndex.Count)
@@ -183,36 +182,39 @@ namespace App.Application.Questions.Services
 
         // ================= MEDIA =================
 
-        private async Task<IDictionary<string, string>> UploadAllMediaAsync(Dictionary<string, byte[]> mediaIndex, CancellationToken ct)
+        private async Task<IDictionary<string, (string Url, string PublicId)>> UploadAllMediaAsync(
+     Dictionary<string, byte[]> mediaIndex, CancellationToken ct)
         {
-            var uploaded = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var uploaded = new ConcurrentDictionary<string, (string Url, string PublicId)>(StringComparer.OrdinalIgnoreCase);
             var errors = new ConcurrentBag<string>();
+            var semaphore = new SemaphoreSlim(5);
 
-            var tasks = mediaIndex.Select(async kv =>
+            var validMedia = mediaIndex
+                .Where(kv => {
+                    var ext = Path.GetExtension(kv.Key).ToLowerInvariant();
+                    return AllowedAudioExt.Contains(ext) || AllowedImageExt.Contains(ext);
+                })
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+            var tasks = validMedia.Select(async kv =>
             {
                 var (fileName, fileBytes) = kv;
                 var normalizedKey = NormalizeFileName(fileName);
-
+                await semaphore.WaitAsync(ct);
                 try
                 {
-                    var ext = Path.GetExtension(fileName).ToLowerInvariant(); // ← fileName, không phải filePath
+                    var ext = Path.GetExtension(fileName).ToLowerInvariant();
                     using var stream = new MemoryStream(fileBytes);
 
                     if (AllowedAudioExt.Contains(ext))
                     {
                         var res = await _cloudinary.UploadAudioInternalAsync(stream, fileName, "toeic/single/audio", ct);
-                        uploaded[normalizedKey] = res.Url;
-                        _logger.LogInformation($"Uploaded audio: {fileName}");
+                        uploaded[normalizedKey] = (res.Url, res.PublicId); 
                     }
                     else if (AllowedImageExt.Contains(ext))
                     {
                         var res = await _cloudinary.UploadImageInternalAsync(stream, fileName, "toeic/single/image", ct);
-                        uploaded[normalizedKey] = res.Url;
-                        _logger.LogInformation($"Uploaded image: {fileName}");
-                    }
-                    else
-                    {
-                        errors.Add($"{fileName}: unsupported extension {ext}");
+                        uploaded[normalizedKey] = (res.Url, res.PublicId);
                     }
                 }
                 catch (Exception ex)
@@ -220,17 +222,14 @@ namespace App.Application.Questions.Services
                     _logger.LogError(ex, $"Upload failed: {fileName}");
                     errors.Add($"{fileName}: {ex.Message}");
                 }
+                finally { semaphore.Release(); }
             }).ToList();
+
             await Task.WhenAll(tasks);
 
-            //   Check errors
             if (errors.Any())
-            {
-                throw new InvalidOperationException(
-                    $"Upload failed for {errors.Count} files:\n{string.Join("\n", errors)}");
-            }
+                throw new InvalidOperationException($"Upload failed for {errors.Count} files:\n{string.Join("\n", errors)}");
 
-            _logger.LogInformation($"  Total media uploaded: {uploaded.Count}/{mediaIndex.Count}");
             return uploaded;
         }
 
@@ -238,7 +237,7 @@ namespace App.Application.Questions.Services
 
         private void BuildSingleQuestion(
             QuestionPreviewDto dto,
-            IDictionary<string, string> mediaUrls,
+           IDictionary<string, (string Url, string PublicId)> mediaUrls,
             List<Domain.Entities.Question> questions,
             List<Domain.Entities.Answer> answers,
             List<Domain.Entities.QuestionMedia> medias)
@@ -251,7 +250,7 @@ namespace App.Application.Questions.Services
                 Id = qId,
                 CategoryId = dto.CategoryId,
                 Content = dto.Content,
-                QuestionType = "SingleChoice",
+                QuestionType = Domain.Entities.QuestionTypeEnum.SingleChoice,
                 DifficultyId = dto.DifficultyId,
                 DefaultScore = 1,
                 ShuffleAnswers = true,
@@ -278,7 +277,7 @@ namespace App.Application.Questions.Services
 
         private void BuildQuestionGroup(
             QuestionGroupPreviewDto dto,
-            IDictionary<string, string> mediaUrls,
+             IDictionary<string, (string Url, string PublicId)> mediaUrls,
             List<Domain.Entities.QuestionGroup> groups,
             List<Domain.Entities.Question> questions,
             List<Domain.Entities.Answer> answers,
@@ -304,7 +303,8 @@ namespace App.Application.Questions.Services
                 {
                     Id = Guid.NewGuid(),
                     QuestionGroupId = groupId,
-                    Url = audio,
+                    Url = audio.Url,
+                    PublicId = audio.PublicId,
                     MediaType = "audio",
                     OrderIndex = 1
                 });
@@ -317,7 +317,8 @@ namespace App.Application.Questions.Services
                 {
                     Id = Guid.NewGuid(),
                     QuestionGroupId = groupId,
-                    Url = image,
+                    Url = image.Url,
+                    PublicId = image.PublicId,
                     MediaType = "image",
                     OrderIndex = 2
                 });
@@ -335,11 +336,12 @@ namespace App.Application.Questions.Services
                     Content = q.Content,
                     Explanation = q.Explanation,
                     DifficultyId = q.DifficultyId,
-                    QuestionType = "SingleChoice",
+                    QuestionType = Domain.Entities.QuestionTypeEnum.SingleChoice,
                     DefaultScore = 1,
                     ShuffleAnswers = true,
                     IsActive = true,
-                    CreatedAt = now
+                    CreatedAt = now,
+                    OrderIndex = q.QuestionNumber
                 });
 
                 foreach (var a in q.Answers)
@@ -364,9 +366,11 @@ namespace App.Application.Questions.Services
             string fileName,
             string type,
             Guid questionId,
-            IDictionary<string, string> mediaUrls,
+             IDictionary<string, (string Url, string PublicId)> mediaUrls,
             List<Domain.Entities.QuestionMedia> medias)
         {
+
+            (string Url, string PublicId) media = default;
             if (string.IsNullOrWhiteSpace(fileName)) return;
 
             var normalizedKey = NormalizeFileName(fileName);
@@ -389,17 +393,17 @@ namespace App.Application.Questions.Services
                 }
             }
 
-            if (!string.IsNullOrEmpty(url))
+            if (!string.IsNullOrEmpty(media.Url))
             {
                 medias.Add(new Domain.Entities.QuestionMedia
                 {
                     Id = Guid.NewGuid(),
                     QuestionId = questionId,
-                    Url = url,
+                    Url = media.Url,
+                    PublicId = media.PublicId,
                     MediaType = type,
                     OrderIndex = type == "audio" ? 1 : 2
                 });
-                _logger.LogInformation($"  Added media: {fileName} -> {url}");
             }
             else
             {

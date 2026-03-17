@@ -43,11 +43,11 @@ namespace App.Domain.Entities
         public string? ProgressSnapshot { get; set; } // JSON snapshot
 
         // Anti-cheat tracking
-        public string IpAddress { get; set; } // Địa chỉ IP của thiết bị mà thí sinh đang dùng để truy cập bài thi
-        public string UserAgent { get; set; }  // Chuỗi thông tin mà trình duyệt gửi lên server mỗi khi request
-        public List<string> AntiCheatFlags { get; set; } = new(); // Flagged reasons
-        public int TabSwitchCount { get; set; } = 0; // Số lần thí sinh chuyển tab
-        public int PageReloadCount { get; set; } = 0; // Số lần thí sinh reload/trở lại trang
+        //public string IpAddress { get; set; } // Địa chỉ IP của thiết bị mà thí sinh đang dùng để truy cập bài thi
+        //public string UserAgent { get; set; }  // Chuỗi thông tin mà trình duyệt gửi lên server mỗi khi request
+        //public List<string> AntiCheatFlags { get; set; } = new(); // Flagged reasons
+        //public int TabSwitchCount { get; set; } = 0; // Số lần thí sinh chuyển tab
+        //public int PageReloadCount { get; set; } = 0; // Số lần thí sinh reload/trở lại trang
 
         // audit 
         public byte[] VersionNumber { get; set; }

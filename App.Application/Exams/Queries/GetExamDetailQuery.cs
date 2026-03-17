@@ -32,10 +32,14 @@ namespace App.Application.Exams.Queries
         public async Task<ExamDetailDto> Handle(GetExamDetailQuery request, CancellationToken cancellation)
         {
             var examDto = await _context.Exams
-        .AsNoTracking()
-        .Where(x => x.Id == request.examId)
-        .ProjectTo<ExamDetailDto>(_mapper.ConfigurationProvider)
-        .FirstOrDefaultAsync(cancellation);
+                      .AsNoTracking()
+                      .Where(x => x.Id == request.examId)
+                      .Include(e => e.Sections)
+                          .ThenInclude(s => s.ExamQuestions)
+                              .ThenInclude(eq => eq.Question)
+                                  .ThenInclude(q => q.Group) 
+                      .ProjectTo<ExamDetailDto>(_mapper.ConfigurationProvider)
+                      .FirstOrDefaultAsync(cancellation);
 
             if (examDto == null)
                 throw new KeyNotFoundException($"Không tìm thấy đề thi");

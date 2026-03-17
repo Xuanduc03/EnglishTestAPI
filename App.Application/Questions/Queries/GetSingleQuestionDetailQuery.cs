@@ -46,28 +46,36 @@ namespace App.Application.Questions.Queries
                 Content = question.Content,
                 Explanation = question.Explanation,
 
-                Media = question.Media
-                    .OrderBy(m => m.OrderIndex)
-                    .Select(m => new MediaDto
-                    {
-                        Id = m.Id,
-                        Url = m.Url,
-                        MediaType = m.MediaType,
-                        OrderIndex = m.OrderIndex
-                    })
-                    .ToList(),
+                PromptTypes = question.PromptTypes?.ToString(),
+                MinWords = question.MinWords,
+                MaxWords = question.MaxWords,
+                TimeLimitSeconds = question.TimeLimitSeconds,
+                IsAiGraded = question.IsAiGraded,
+                RubricJson = question.RubricJson,
+                SampleAnswer = question.SampleAnswer,
+                MetadataJson = question.MetadataJson,
 
-                Answers = question.Answers
-                    .OrderBy(a => a.OrderIndex)
-                    .Select(a => new AnswerDto
-                    {
-                        Id = a.Id,
-                        Content = a.Content,
-                        IsCorrect = a.IsCorrect,
-                        Feedback = a.Feedback,
-                        OrderIndex = a.OrderIndex,
-                    })
-                    .ToList()
+                        Media = question.Media
+                .OrderBy(m => m.OrderIndex)
+                .Select(m => new MediaDto
+                {
+                    Id = m.Id,
+                    Url = m.Url,
+                    MediaType = m.MediaType,
+                    OrderIndex = m.OrderIndex
+                }).ToList(),
+
+                        Answers = question.Answers
+                .OrderBy(a => a.OrderIndex)
+                .Select(a => new AnswerDto
+                {
+                    Id = a.Id,
+                    Content = a.Content,
+                    IsCorrect = a.IsCorrect,
+                    Feedback = a.Feedback,
+                    OrderIndex = a.OrderIndex,
+                }).ToList(),
+                
             };
         }
     }

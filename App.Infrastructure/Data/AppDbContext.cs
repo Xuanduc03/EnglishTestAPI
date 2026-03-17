@@ -57,6 +57,9 @@ namespace App.Infrastructure.Data
         public DbSet<VocabularyWord> VocabularyWords { get; set; }
         public DbSet<UserVocabularyProgress> UserVocabularyProgresses { get; set; }
 
+        public DbSet<UserStatistics> UserStatistics { get; set; }
+
+        public DbSet<ScoreTableEntry> ScoreTableEntries { get; set; }
         protected override Guid? GetCurrentUserId() => _currentUserService.UserId;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -121,21 +124,7 @@ namespace App.Infrastructure.Data
 
                 entity.Property(p => p.CreatedAt);
             });
-
-            modelBuilder.Entity<ExamAnswer>(entity =>
-            {
-                entity.ToTable("exam_answer");
-            });
-
-            modelBuilder.Entity<ExamAttempt>(entity =>
-            {
-                entity.ToTable("exam_attempt");
-            });
-
-            modelBuilder.Entity<ExamSectionResult>(entity =>
-            {
-                entity.ToTable("exam_section_result");
-            });
+         
 
             // ==============================
             // RolePermission
@@ -204,12 +193,8 @@ namespace App.Infrastructure.Data
                       .HasForeignKey(s => s.ExamId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                // Quan hệ 1-n: Exam -> ScoreTables
-                entity.HasMany(e => e.ScoreTables)
-                      .WithOne(s => s.Exam)
-                      .HasForeignKey(s => s.ExamId)
-                      .OnDelete(DeleteBehavior.Cascade);
             });
+
 
             // 2. ExamSection
             modelBuilder.Entity<ExamSection>(entity =>
@@ -217,22 +202,40 @@ namespace App.Infrastructure.Data
                 entity.ToTable("exam_sections");
                 entity.HasKey(e => e.Id);
 
-                // --- CẤU HÌNH FIX LỖI CONFLICT (MULTIPLE CASCADE PATHS) ---
-
-                // 1. Quan hệ với Exam: GIỮ CASCADE
-                // Logic: Xóa đề thi (Exam) thì xóa luôn các phần thi (Section) là đúng.
-                entity.HasOne(s => s.Exam)
-                      .WithMany(e => e.Sections)
-                      .HasForeignKey(s => s.ExamId)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                // 2. Quan hệ với Category: TẮT CASCADE -> DÙNG RESTRICT
-                // Logic: Xóa Category (VD: "Listening") thì KHÔNG ĐƯỢC xóa Section.
-                // Phải báo lỗi chặn lại nếu Category đó đang được sử dụng.
                 entity.HasOne(s => s.Category)
-                      .WithMany() // Category không cần list ExamSections
+                      .WithMany() 
                       .HasForeignKey(s => s.CategoryId)
-                      .OnDelete(DeleteBehavior.Restrict); // <--- QUAN TRỌNG NHẤT LÀ DÒNG NÀY
+                      .OnDelete(DeleteBehavior.Restrict); 
+            });
+
+            // THAY THẾ block ScoreTable cũ bằng block này
+            modelBuilder.Entity<ScoreTable>(entity =>
+            {
+                entity.ToTable("score_tables");
+
+                // Trỏ vào Category LISTENING hoặc READING (dùng chung toàn hệ thống)
+                entity.HasOne(s => s.SkillCategory)
+                      .WithMany()
+                      .HasForeignKey(s => s.SkillCategoryId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // Mỗi Skill chỉ có 1 bảng quy đổi active
+                entity.HasIndex(s => s.SkillCategoryId).IsUnique(false);
+            });
+
+            modelBuilder.Entity<ScoreTableEntry>(entity =>
+            {
+                entity.ToTable("score_table_entries");
+
+                entity.HasKey(e => e.Id);
+
+                // Số câu đúng + ScoreTableId phải unique
+                entity.HasIndex(e => new { e.ScoreTableId, e.CorrectAnswers }).IsUnique();
+
+                entity.HasOne(e => e.ScoreTable)
+                      .WithMany(s => s.Entries)
+                      .HasForeignKey(e => e.ScoreTableId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             // 3. ExamQuestion (Bảng trung gian quan trọng)
@@ -247,9 +250,9 @@ namespace App.Infrastructure.Data
                       .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasOne(eq => eq.Question)
-                      .WithMany() // Question không cần biết nó nằm trong đề nào
+                      .WithMany()
                       .HasForeignKey(eq => eq.QuestionId)
-                      .OnDelete(DeleteBehavior.Restrict); // Xóa câu hỏi gốc thì KHÔNG được xóa nếu đã có trong đề thi (để giữ lịch sử)
+                      .OnDelete(DeleteBehavior.Restrict); 
             });
 
             // 4. QuestionGroup Configuration
@@ -258,11 +261,9 @@ namespace App.Infrastructure.Data
                 entity.ToTable("question_groups");
                 entity.HasKey(e => e.Id);
 
-                // --- 2. CẤU HÌNH NỘI DUNG (GIỮ NGUYÊN) ---
-                // Lưu ý: Nếu dùng MySQL/MariaDB thì để longtext, SQL Server thì bỏ dòng HasColumnType hoặc để nvarchar(max)
                 entity.Property(e => e.Content).HasColumnType("longtext");
                 entity.Property(e => e.Transcript).HasColumnType("longtext");
-                entity.Property(e => e.MediaJson).HasColumnType("longtext"); // Vẫn giữ để lưu metadata nếu cần
+                entity.Property(e => e.MediaJson).HasColumnType("longtext"); 
 
                 // --- 3. CẤU HÌNH QUAN HỆ (QUAN TRỌNG) ---
 
@@ -279,7 +280,6 @@ namespace App.Infrastructure.Data
                       .OnDelete(DeleteBehavior.Restrict); // BẮT BUỘC RESTRICT
 
                 // 3.3. Quan hệ với Câu hỏi con (Questions)
-                // Khi xoá Bài đọc (Group) -> Xoá luôn các câu hỏi con bên trong -> Cascade là đúng
                 entity.HasMany(g => g.Questions)
                       .WithOne(q => q.Group)
                       .HasForeignKey(q => q.GroupId)
@@ -299,6 +299,33 @@ namespace App.Infrastructure.Data
                 entity.HasKey(e => e.Id);
             });
 
+
+            // 6. Question Configuration
+            modelBuilder.Entity<Question>(entity =>
+            {
+                entity.ToTable("questions");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Content).HasColumnType("longtext");
+                entity.Property(e => e.Explanation).HasColumnType("longtext");
+
+                entity.Property(e => e.QuestionType)
+                      .HasConversion<string>();
+
+                entity.Property(e => e.PromptTypes)
+                      .HasConversion<string>();
+
+                entity.HasOne(q => q.Category)
+                      .WithMany()
+                      .HasForeignKey(q => q.CategoryId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(q => q.Difficulty)
+                      .WithMany()
+                      .HasForeignKey(q => q.DifficultyId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
             modelBuilder.Entity<ExamResult>(entity =>
             {
                 entity.ToTable("exam_results");
@@ -307,24 +334,16 @@ namespace App.Infrastructure.Data
                 // Cấu hình lưu JSON
                 entity.Property(e => e.ScoreDetailJson).HasColumnType("longtext");
 
-                // --- CẤU HÌNH QUAN HỆ ĐỂ TRÁNH LỖI CIRCLE/CASCADE ---
-
-                // 1. Quan hệ với Student: GIỮ CASCADE
-                // Logic: Xóa học sinh thì xóa luôn kết quả thi của nó (Dọn rác sạch sẽ).
-                entity.HasOne(r => r.Student)
-                      .WithMany() // Student có thể không cần list ExamResults
-                      .HasForeignKey(r => r.StudentId)
+                entity.HasOne(r => r.User)
+                      .WithMany() 
+                      .HasForeignKey(r => r.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                // 2. Quan hệ với Exam: TẮT CASCADE -> DÙNG RESTRICT
-                // Logic: Xóa Đề thi (Exam) thì KHÔNG ĐƯỢC xóa kết quả nếu đã có người làm.
-                // Admin phải xóa thủ công các lượt thi trước, hoặc chỉ ẩn đề thi đi thôi.
                 entity.HasOne(r => r.Exam)
-                      .WithMany() // Exam có thể không cần list ExamResults
+                      .WithMany() 
                       .HasForeignKey(r => r.ExamId)
-                      .OnDelete(DeleteBehavior.Restrict); // <--- QUAN TRỌNG: Chặn lỗi tại đây
+                      .OnDelete(DeleteBehavior.Restrict); 
 
-                // 3. Quan hệ với StudentAnswers (Con của Result)
             });
 
             modelBuilder.Entity<QuestionTag>(entity =>
@@ -332,7 +351,6 @@ namespace App.Infrastructure.Data
                 entity.ToTable("question_tags");
                 entity.HasKey(e => e.Id);
 
-                // 1. Cấu hình độ dài và ràng buộc
                 entity.Property(e => e.Tag)
                       .IsRequired()
                       .HasMaxLength(100); // Giới hạn 100 ký tự cho tên Tag
@@ -340,48 +358,149 @@ namespace App.Infrastructure.Data
                 entity.Property(e => e.TagType)
                       .HasMaxLength(50);  // VD: "Topic", "Grammar"
 
-                // 2. ĐÁNH INDEX (Rất quan trọng cho tốc độ tìm kiếm)
-                // Giúp query kiểu: Tìm tất cả câu hỏi có tag "Present Simple" chạy nhanh hơn
                 entity.HasIndex(e => e.Tag);
                 entity.HasIndex(e => e.TagType);
 
                 // 3. CẤU HÌNH QUAN HỆ (RELATIONSHIPS)
 
-                // 3.1. Quan hệ với Câu hỏi lẻ (Question)
-                // Logic: Nếu xóa Câu hỏi -> Xóa luôn các Tag dán trên câu hỏi đó
                 entity.HasOne(t => t.Question)
                       .WithMany(q => q.Tags)
                       .HasForeignKey(t => t.QuestionId)
-                      .OnDelete(DeleteBehavior.Cascade); // 🔥 Cascade là bắt buộc
+                      .OnDelete(DeleteBehavior.Cascade); 
 
-                // 3.2. Quan hệ với Bài đọc (QuestionGroup)
-                // Logic: Nếu xóa Bài đọc -> Xóa luôn các Tag dán trên bài đọc đó
                 entity.HasOne(t => t.QuestionGroup)
                       .WithMany(g => g.Tags)
                       .HasForeignKey(t => t.QuestionGroupId)
-                      .OnDelete(DeleteBehavior.Cascade); // 🔥 Cascade là bắt buộc
+                      .OnDelete(DeleteBehavior.Cascade); 
             });
 
-            // 7. ScoreTable
-            modelBuilder.Entity<ScoreTable>(entity => {
-                entity.ToTable("score_tables");
-                // Lưu JSON dài
-                entity.Property(e => e.ConversionJson).HasColumnType("longtext");
-            });
+          
 
-            modelBuilder.Entity<ScoreTable>(entity =>
+          
+
+            modelBuilder.Entity<ExamAttempt>(entity =>
             {
-                entity.ToTable("score_tables");
+                entity.ToTable("exam_attempts");
+                entity.HasKey(e => e.Id);
 
-                entity.Property(e => e.ConversionJson)
+                entity.Property(e => e.Status).HasConversion<int>();
+                entity.Property(e => e.VersionNumber).IsRowVersion();
+
+                entity.HasOne(e => e.User)
+                      .WithMany(u => u.ExamAttempts)
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Exam)
+                      .WithMany(ex => ex.Attempts)  
+                      .HasForeignKey(e => e.ExamId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ExamSectionResult>(entity =>
+            {
+                // Tên bảng
+                entity.ToTable("exam_section_results");
+
+                // Primary key
+                entity.HasKey(e => e.Id);
+
+                // Columns
+                entity.Property(e => e.TotalQuestions)
+                      .IsRequired();
+
+                entity.Property(e => e.CorrectAnswers)
+                      .IsRequired();
+
+                entity.Property(e => e.ConvertedScore);
+
+                // FK -> ExamAttempt
+                entity.HasOne(e => e.Attempt)
+                      .WithMany(a => a.SectionResults)
+                      .HasForeignKey(e => e.ExamAttemptId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Index (1 attempt chỉ có 1 result cho mỗi section)
+                entity.HasIndex(e => new { e.ExamAttemptId, e.ExamSectionId })
+                      .IsUnique();
+            });
+
+            // Cấu hình table cho use statistic
+            modelBuilder.Entity<UserStatistics>(entity =>
+            {
+                entity.ToTable("user_statistics");
+                entity.HasKey(e => e.Id);
+
+                // Ràng buộc unique: mỗi user chỉ có một bản ghi thống kê
+                entity.HasIndex(e => e.UserId).IsUnique();
+
+                // Khóa ngoại liên kết với User
+                entity.HasOne(e => e.User)
+                      .WithOne()
+                      .HasForeignKey<UserStatistics>(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            }); 
+
+            modelBuilder.Entity<ExamAnswer>(entity =>
+            {
+                // Table name
+                entity.ToTable("exam_answers");
+
+                // Primary key
+                entity.HasKey(e => e.Id);
+
+                // Required fields
+                entity.Property(e => e.ExamAttemptId)
+                      .IsRequired();
+
+                entity.Property(e => e.ExamQuestionId)
+                      .IsRequired();
+
+                entity.Property(e => e.QuestionId)
+                      .IsRequired();
+
+                entity.Property(e => e.IsAnswered)
+                      .IsRequired();
+
+                entity.Property(e => e.IsCorrect)
+                      .IsRequired();
+
+                entity.Property(e => e.Point)
+                      .HasColumnType("decimal(5,2)");
+
+                // FK -> ExamAttempt
+                entity.HasOne(e => e.Attempt)
+                      .WithMany(a => a.Answers)
+                      .HasForeignKey(e => e.ExamAttemptId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // FK -> ExamQuestion
+                entity.HasOne(e => e.ExamQuestions)
+                      .WithMany(q => q.ExamAnswers)
+                      .HasForeignKey(e => e.ExamQuestionId)
+                      .OnDelete(DeleteBehavior.Restrict);
+                entity.Property(e => e.GradingStatus)
+                     .HasConversion<string>();
+
+                entity.Property(e => e.TextAnswer)
                       .HasColumnType("longtext");
 
-                entity.HasOne(s => s.Category)
-                      .WithMany()
-                      .HasForeignKey(s => s.CategoryId)
-                      .OnDelete(DeleteBehavior.Restrict);
-            });
+                entity.Property(e => e.AiFeedback)
+                      .HasColumnType("longtext");
 
+                entity.Property(e => e.AiScoreDetailJson)
+                      .HasColumnType("longtext");
+                // Index: 1 attempt chỉ có 1 answer cho mỗi question
+                entity.HasIndex(e => new
+                {
+                    e.ExamAttemptId,
+                    e.ExamQuestionId
+                })
+                .IsUnique();
+
+                // Index để query nhanh
+                entity.HasIndex(e => e.ExamAttemptId);
+            });
         }
     }
 }

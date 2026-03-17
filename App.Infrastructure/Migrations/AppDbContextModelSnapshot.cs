@@ -235,8 +235,20 @@ namespace App.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<string>("AiFeedback")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("AiScoreDetailJson")
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime?>("AnsweredAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("AudioPublicId")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("AudioUrl")
+                        .HasColumnType("longtext");
 
                     b.Property<Guid?>("CorrectAnswerId")
                         .HasColumnType("char(36)");
@@ -259,6 +271,16 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid>("ExamQuestionId")
                         .HasColumnType("char(36)");
 
+                    b.Property<DateTime?>("GradedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("GradingStatus")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsAiGraded")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("IsAnswered")
                         .HasColumnType("tinyint(1)");
 
@@ -268,14 +290,20 @@ namespace App.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<double>("Point")
-                        .HasColumnType("double");
+                    b.Property<decimal>("Point")
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<Guid>("QuestionId")
                         .HasColumnType("char(36)");
 
+                    b.Property<int?>("RecordingDurationSeconds")
+                        .HasColumnType("int");
+
                     b.Property<Guid?>("SelectedAnswerId")
                         .HasColumnType("char(36)");
+
+                    b.Property<string>("TextAnswer")
+                        .HasColumnType("longtext");
 
                     b.Property<int?>("TimeSpentSeconds")
                         .HasColumnType("int");
@@ -289,13 +317,19 @@ namespace App.Infrastructure.Migrations
                     b.Property<int>("VersionNumber")
                         .HasColumnType("int");
 
+                    b.Property<int?>("WordCount")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ExamAttemptId");
 
                     b.HasIndex("ExamQuestionId");
 
-                    b.ToTable("exam_answer", (string)null);
+                    b.HasIndex("ExamAttemptId", "ExamQuestionId")
+                        .IsUnique();
+
+                    b.ToTable("exam_answers", (string)null);
                 });
 
             modelBuilder.Entity("App.Domain.Entities.ExamAttempt", b =>
@@ -306,10 +340,6 @@ namespace App.Infrastructure.Migrations
 
                     b.Property<int?>("ActualTimeSeconds")
                         .HasColumnType("int");
-
-                    b.PrimitiveCollection<string>("AntiCheatFlags")
-                        .IsRequired()
-                        .HasColumnType("longtext");
 
                     b.Property<int>("CorrectAnswers")
                         .HasColumnType("int");
@@ -335,10 +365,6 @@ namespace App.Infrastructure.Migrations
                     b.Property<int>("IncorrectAnswers")
                         .HasColumnType("int");
 
-                    b.Property<string>("IpAddress")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
@@ -349,9 +375,6 @@ namespace App.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<int?>("ListeningScore")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PageReloadCount")
                         .HasColumnType("int");
 
                     b.Property<string>("ProgressSnapshot")
@@ -372,9 +395,6 @@ namespace App.Infrastructure.Migrations
                     b.Property<DateTime?>("SubmitedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int>("TabSwitchCount")
-                        .HasColumnType("int");
-
                     b.Property<int>("TimeLimitSeconds")
                         .HasColumnType("int");
 
@@ -393,16 +413,13 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("char(36)");
 
-                    b.Property<string>("UserAgent")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
                     b.Property<Guid>("UserId")
                         .HasColumnType("char(36)");
 
-                    b.Property<byte[]>("VersionNumber")
-                        .IsRequired()
-                        .HasColumnType("longblob");
+                    b.Property<DateTime>("VersionNumber")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("timestamp(6)");
 
                     b.HasKey("Id");
 
@@ -410,7 +427,7 @@ namespace App.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("exam_attempt", (string)null);
+                    b.ToTable("exam_attempts", (string)null);
                 });
 
             modelBuilder.Entity("App.Domain.Entities.ExamQuestion", b =>
@@ -515,9 +532,6 @@ namespace App.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<Guid>("StudentId")
-                        .HasColumnType("char(36)");
-
                     b.Property<int>("TotalQuestion")
                         .HasColumnType("int");
 
@@ -530,11 +544,14 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("char(36)");
 
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ExamId");
 
-                    b.HasIndex("StudentId");
+                    b.HasIndex("UserId");
 
                     b.ToTable("exam_results", (string)null);
                 });
@@ -634,11 +651,12 @@ namespace App.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ExamAttemptId");
-
                     b.HasIndex("ExamSectionId");
 
-                    b.ToTable("exam_section_result", (string)null);
+                    b.HasIndex("ExamAttemptId", "ExamSectionId")
+                        .IsUnique();
+
+                    b.ToTable("exam_section_results", (string)null);
                 });
 
             modelBuilder.Entity("App.Domain.Entities.Permission", b =>
@@ -692,8 +710,20 @@ namespace App.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<string>("AiFeedback")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("AiScoreDetailJson")
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime?>("AnsweredAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("AudioPublicId")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("AudioUrl")
+                        .HasColumnType("longtext");
 
                     b.Property<int?>("ChangeCount")
                         .HasColumnType("int");
@@ -709,6 +739,16 @@ namespace App.Infrastructure.Migrations
 
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("GradedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("GradingStatus")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsAiGraded")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("IsCorrect")
                         .HasColumnType("tinyint(1)");
@@ -730,8 +770,14 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid>("QuestionId")
                         .HasColumnType("char(36)");
 
+                    b.Property<int?>("RecordingDurationSeconds")
+                        .HasColumnType("int");
+
                     b.Property<Guid?>("SelectedAnswerId")
                         .HasColumnType("char(36)");
+
+                    b.Property<string>("TextAnswer")
+                        .HasColumnType("longtext");
 
                     b.Property<int>("TimeSpentSeconds")
                         .ValueGeneratedOnAdd()
@@ -743,6 +789,9 @@ namespace App.Infrastructure.Migrations
 
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("char(36)");
+
+                    b.Property<int?>("WordCount")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -942,6 +991,12 @@ namespace App.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<int?>("ActualWordCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AiPromptTemplate")
+                        .HasColumnType("longtext");
+
                     b.Property<Guid>("CategoryId")
                         .HasColumnType("char(36)");
 
@@ -975,6 +1030,9 @@ namespace App.Infrastructure.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("IsAiGraded")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
@@ -984,17 +1042,26 @@ namespace App.Infrastructure.Migrations
                     b.Property<int?>("MaxWords")
                         .HasColumnType("int");
 
+                    b.Property<string>("MetadataJson")
+                        .HasColumnType("longtext");
+
                     b.Property<int?>("MinWords")
                         .HasColumnType("int");
 
-                    b.Property<int?>("PromptTypes")
+                    b.Property<int>("OrderIndex")
                         .HasColumnType("int");
+
+                    b.Property<string>("PromptTypes")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("QuestionType")
                         .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("RubricJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("SampleAnswer")
                         .HasColumnType("longtext");
 
                     b.Property<bool>("ShuffleAnswers")
@@ -1017,7 +1084,7 @@ namespace App.Infrastructure.Migrations
 
                     b.HasIndex("GroupId");
 
-                    b.ToTable("Questions");
+                    b.ToTable("questions", (string)null);
                 });
 
             modelBuilder.Entity("App.Domain.Entities.QuestionGroup", b =>
@@ -1368,12 +1435,58 @@ namespace App.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid?>("CategoryId")
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
                         .HasColumnType("char(36)");
 
-                    b.Property<string>("ConversionJson")
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("MaxScore")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MinScore")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<Guid>("SkillCategoryId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SkillCategoryId");
+
+                    b.ToTable("score_tables", (string)null);
+                });
+
+            modelBuilder.Entity("App.Domain.Entities.ScoreTableEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("CorrectAnswers")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -1387,11 +1500,14 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid>("ExamId")
-                        .HasColumnType("char(36)");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ScoreTableId")
+                        .HasColumnType("char(36)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -1401,11 +1517,10 @@ namespace App.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CategoryId");
+                    b.HasIndex("ScoreTableId", "CorrectAnswers")
+                        .IsUnique();
 
-                    b.HasIndex("ExamId");
-
-                    b.ToTable("score_tables", (string)null);
+                    b.ToTable("score_table_entries", (string)null);
                 });
 
             modelBuilder.Entity("App.Domain.Entities.Student", b =>
@@ -1606,6 +1721,56 @@ namespace App.Infrastructure.Migrations
                     b.ToTable("user_roles", (string)null);
                 });
 
+            modelBuilder.Entity("App.Domain.Entities.UserStatistics", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("AverageScore")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("CurrentStreak")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("LastActivityDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("TotalExamsCompleted")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("user_statistics", (string)null);
+                });
+
             modelBuilder.Entity("App.Domain.Entities.UserVocabularyProgress", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1624,6 +1789,12 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("char(36)");
 
+                    b.Property<double>("EaseFactor")
+                        .HasColumnType("double");
+
+                    b.Property<int>("Interval")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
@@ -1632,6 +1803,9 @@ namespace App.Infrastructure.Migrations
 
                     b.Property<DateTime?>("NextReviewAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int>("RepetitionCount")
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1670,6 +1844,12 @@ namespace App.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<string>("AudioUrl")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("char(36)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -1682,8 +1862,20 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("char(36)");
 
+                    b.Property<string>("Example")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ExampleMeaning")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("longtext");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Level")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Meaning")
                         .IsRequired()
@@ -1711,6 +1903,8 @@ namespace App.Infrastructure.Migrations
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
 
                     b.ToTable("VocabularyWords");
                 });
@@ -1745,7 +1939,7 @@ namespace App.Infrastructure.Migrations
                     b.HasOne("App.Domain.Entities.ExamQuestion", "ExamQuestions")
                         .WithMany("ExamAnswers")
                         .HasForeignKey("ExamQuestionId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Attempt");
@@ -1807,15 +2001,15 @@ namespace App.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("App.Domain.Entities.Student", "Student")
+                    b.HasOne("App.Domain.Entities.User", "User")
                         .WithMany()
-                        .HasForeignKey("StudentId")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Exam");
 
-                    b.Navigation("Student");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("App.Domain.Entities.ExamSection", b =>
@@ -1924,12 +2118,13 @@ namespace App.Infrastructure.Migrations
                     b.HasOne("App.Domain.Entities.Category", "Category")
                         .WithMany()
                         .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("App.Domain.Entities.Category", "Difficulty")
                         .WithMany()
-                        .HasForeignKey("DifficultyId");
+                        .HasForeignKey("DifficultyId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("App.Domain.Entities.QuestionGroup", "Group")
                         .WithMany("Questions")
@@ -2030,20 +2225,24 @@ namespace App.Infrastructure.Migrations
 
             modelBuilder.Entity("App.Domain.Entities.ScoreTable", b =>
                 {
-                    b.HasOne("App.Domain.Entities.Category", "Category")
+                    b.HasOne("App.Domain.Entities.Category", "SkillCategory")
                         .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .HasForeignKey("SkillCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
-                    b.HasOne("App.Domain.Entities.Exam", "Exam")
-                        .WithMany("ScoreTables")
-                        .HasForeignKey("ExamId")
+                    b.Navigation("SkillCategory");
+                });
+
+            modelBuilder.Entity("App.Domain.Entities.ScoreTableEntry", b =>
+                {
+                    b.HasOne("App.Domain.Entities.ScoreTable", "ScoreTable")
+                        .WithMany("Entries")
+                        .HasForeignKey("ScoreTableId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Category");
-
-                    b.Navigation("Exam");
+                    b.Navigation("ScoreTable");
                 });
 
             modelBuilder.Entity("App.Domain.Entities.Student", b =>
@@ -2076,6 +2275,17 @@ namespace App.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("App.Domain.Entities.UserStatistics", b =>
+                {
+                    b.HasOne("App.Domain.Entities.User", "User")
+                        .WithOne()
+                        .HasForeignKey("App.Domain.Entities.UserStatistics", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("App.Domain.Entities.UserVocabularyProgress", b =>
                 {
                     b.HasOne("App.Domain.Entities.User", "User")
@@ -2095,6 +2305,15 @@ namespace App.Infrastructure.Migrations
                     b.Navigation("Word");
                 });
 
+            modelBuilder.Entity("App.Domain.Entities.VocabularyWord", b =>
+                {
+                    b.HasOne("App.Domain.Entities.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId");
+
+                    b.Navigation("Category");
+                });
+
             modelBuilder.Entity("App.Domain.Entities.Category", b =>
                 {
                     b.Navigation("Children");
@@ -2103,8 +2322,6 @@ namespace App.Infrastructure.Migrations
             modelBuilder.Entity("App.Domain.Entities.Exam", b =>
                 {
                     b.Navigation("Attempts");
-
-                    b.Navigation("ScoreTables");
 
                     b.Navigation("Sections");
                 });
@@ -2161,6 +2378,11 @@ namespace App.Infrastructure.Migrations
                     b.Navigation("RolePermissions");
 
                     b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("App.Domain.Entities.ScoreTable", b =>
+                {
+                    b.Navigation("Entries");
                 });
 
             modelBuilder.Entity("App.Domain.Entities.User", b =>

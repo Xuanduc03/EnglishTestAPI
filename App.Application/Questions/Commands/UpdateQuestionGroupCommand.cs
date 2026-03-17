@@ -24,14 +24,11 @@ namespace App.Application.Questions.Commands
         // FILES - Upload mới (nếu có)
         public IFormFile? GroupAudioFile { get; set; }
         public IFormFile? GroupImageFile { get; set; }
-        // File url đã tồn tại và chỉ cần url
         public string? AudioUrl { get; set; }
-        public string? ImaageUrl { get; set; }
-        // Flags để xóa file cũ
+        public string? ImageUrl { get; set; }
         public bool DeleteAudio { get; set; } = false;
         public bool DeleteImage { get; set; } = false;
 
-        // Questions (REPLACE toàn bộ)
         public List<UpdateQuestionInGroupDto> Questions { get; set; }
     }
 
@@ -40,7 +37,7 @@ namespace App.Application.Questions.Commands
     {
         public Guid? Id { get; set; } // Null = tạo mới, có giá trị = update existing
         public string Content { get; set; } = string.Empty;
-        public string QuestionType { get; set; } = "SingleChoice";
+        public QuestionTypeEnum QuestionType { get; set; } = QuestionTypeEnum.SingleChoice;
         public Guid? DifficultyId { get; set; }
         public double DefaultScore { get; set; } = 1.0;
         public bool ShuffleAnswers { get; set; } = true;
@@ -99,9 +96,9 @@ namespace App.Application.Questions.Commands
                         q.CategoryId = request.CategoryId;
                     }
                 }
-             
+
                 // Apply media changes (DB only)
-                ApplyMediaChanges(group.Id, uploadResults);
+                ApplyMediaChanges(group.Id, uploadResults, mediaOperations, request);
 
                 // Update questions
                 await UpdateQuestionsAsync(group, request.Questions, cancellationToken);
@@ -330,19 +327,17 @@ namespace App.Application.Questions.Commands
             group.UpdatedAt = DateTime.UtcNow;
         }
 
-        private void ApplyMediaChanges(Guid groupId, UploadResults uploadResults)
+        private void ApplyMediaChanges(Guid groupId, UploadResults uploadResults,
+            MediaOperations operations, UpdateQuestionGroupCommand request)
         {
-            // Remove old media (will be deleted after commit)
-            var oldMedia = _context.QuestionGroupMedia
-                .Where(m => m.QuestionGroupId == groupId)
-                .ToList();
-
-            if (oldMedia.Any())
+            // Audio
+            if (operations.ShouldDeleteAudio)
             {
-                _context.QuestionGroupMedia.RemoveRange(oldMedia);
+                var oldAudio = _context.QuestionGroupMedia
+                    .Where(m => m.QuestionGroupId == groupId && m.MediaType == "audio")
+                    .ToList();
+                _context.QuestionGroupMedia.RemoveRange(oldAudio);
             }
-
-            // Add new audio
             if (!string.IsNullOrWhiteSpace(uploadResults.AudioUrl))
             {
                 _context.QuestionGroupMedia.Add(new QuestionGroupMedia
@@ -355,8 +350,14 @@ namespace App.Application.Questions.Commands
                     OrderIndex = 1
                 });
             }
-
-            // Add new image
+            // Image
+            if (operations.ShouldDeleteImage)
+            {
+                var oldImage = _context.QuestionGroupMedia
+                    .Where(m => m.QuestionGroupId == groupId && m.MediaType == "image")
+                    .ToList();
+                _context.QuestionGroupMedia.RemoveRange(oldImage);
+            }
             if (!string.IsNullOrWhiteSpace(uploadResults.ImageUrl))
             {
                 _context.QuestionGroupMedia.Add(new QuestionGroupMedia
@@ -370,7 +371,6 @@ namespace App.Application.Questions.Commands
                 });
             }
         }
-
         // ✅ Step 4: Cleanup old files (AFTER commit)
         private async Task CleanupOldFilesAsync(MediaOperations operations)
         {
@@ -398,7 +398,7 @@ namespace App.Application.Questions.Commands
             }
             catch (Exception ex)
             {
-                throw new Exception(ex.ToString(), ex);
+             
             }
         }
 

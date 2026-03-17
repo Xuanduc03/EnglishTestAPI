@@ -73,8 +73,8 @@ namespace App.Application.Questions.Services
                 result.MissingMediaFiles = context.MissingMediaFiles.ToList();
 
                 result.MediaIndex = mediaIndexPath.ToDictionary(
-                   kv => kv.Key,                       // key: normalized fileName
-                   kv => File.ReadAllBytes(kv.Value),  // value: byte[] đọc từ disk
+                   kv => kv.Key,                      
+                   kv => File.ReadAllBytes(kv.Value),  
                    StringComparer.OrdinalIgnoreCase
                );
 
@@ -118,11 +118,8 @@ namespace App.Application.Questions.Services
                 return sheetSummary;
             }
 
-            // Bây giờ, đối với mỗi hàng/nhóm, phân tích cú pháp
-            // -> nhưng đồng thời xác thực xem phương tiện được tham chiếu có tồn tại trong mediaIndex hay không.
             if (_excelService.IsGroupPart(sheetName))
             {
-                // phân tích nhóm (sử dụng lại ParseQuestionGroup nhưng cập nhật để chấp nhận mediaIndex)
                 int rowCount = ws.Dimension?.Rows ?? 0;
                 int currentRow = 2;
                 var groupContentSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase); // phát hiện trùng nội dung trong file Excel

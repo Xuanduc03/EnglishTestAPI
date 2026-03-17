@@ -11,7 +11,7 @@ namespace App.Application.Questions.Commands
         public Guid Id { get; set; }
         public Guid CategoryId { get; set; }
         public string? Content { get; set; } = string.Empty;
-        public string QuestionType { get; set; } = "SingleChoice";
+        public QuestionTypeEnum QuestionType { get; set; } = QuestionTypeEnum.SingleChoice;
         public Guid? DifficultyId { get; set; }
         public double DefaultScore { get; set; } = 1.0;
         public bool ShuffleAnswers { get; set; } = true;

@@ -85,5 +85,30 @@ namespace App.Domain.Entities
         /// </summary>
         public virtual ExamQuestion ExamQuestions { get; set; }
         public Guid? CorrectAnswerId { get; set; }
+
+        // ✅ THÊM cho Writing
+        public string? TextAnswer { get; set; }        // Bài viết của học viên
+        public int? WordCount { get; set; }            // Số từ đếm được
+
+        // ✅ THÊM cho Speaking
+        public string? AudioUrl { get; set; }          // URL file ghi âm Cloudinary
+        public string? AudioPublicId { get; set; }     // Để xóa file sau
+        public int? RecordingDurationSeconds { get; set; } // Thời gian ghi âm
+
+        // ✅ THÊM cho AI Grading
+        public string? AiFeedback { get; set; }        // Nhận xét AI
+        public string? AiScoreDetailJson { get; set; } // {"grammar":7,"vocabulary":6,...}
+        public bool IsAiGraded { get; set; } = false;
+        public DateTime? GradedAt { get; set; }
+        public GradingStatus GradingStatus { get; set; } = GradingStatus.Pending;
+    }
+
+    public enum GradingStatus
+    {
+        NotRequired = 0, // Trắc nghiệm, không cần chấm
+        Pending = 1,     // Chờ AI chấm
+        Grading = 2,     // Đang chấm
+        Completed = 3,   // Đã chấm xong
+        Failed = 4       // AI chấm lỗi, cần manual
     }
 }

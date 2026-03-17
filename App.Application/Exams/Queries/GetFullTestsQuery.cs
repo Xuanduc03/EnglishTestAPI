@@ -35,14 +35,34 @@ namespace App.Application.Exams.Queries
 
         public async Task<List<ExamSummaryDto>> Handle(GetFullTestsQuery request, CancellationToken cancellationToken)
         {
+            // Lấy danh sách exam thỏa mãn điều kiện
             var exams = await _context.Exams
                 .Where(x => !x.IsDeleted
                     && x.Category == ExamCategory.FullTest
                     && x.Status == ExamStatus.Published
                     && x.IsActive)
-                .OrderByDescending(x => x.CreatedAt) // Mới nhất lên đầu
+                .OrderByDescending(x => x.CreatedAt)
                 .ProjectTo<ExamSummaryDto>(_mapper.ConfigurationProvider)
                 .ToListAsync(cancellationToken);
+
+            if (!exams.Any()) return exams;
+
+            var examIds = exams.Select(e => e.Id).ToList();
+
+            // Đếm số lượng attempt đang InProgress cho mỗi exam
+            var inProgressCounts = await _context.ExamAttempts
+                .Where(a => examIds.Contains(a.ExamId) && a.Status == ExamAttemptStatus.InProgress || a.Status == ExamAttemptStatus.Submitted)
+                .GroupBy(a => a.ExamId)
+                .Select(g => new { ExamId = g.Key, Count = g.Count() })
+                .ToListAsync(cancellationToken);
+
+            var countDict = inProgressCounts.ToDictionary(x => x.ExamId, x => x.Count);
+
+            // Gán giá trị vào DTO
+            foreach (var exam in exams)
+            {
+                exam.ActiveUserCount = countDict.GetValueOrDefault(exam.Id, 0);
+            }
 
             return exams;
         }

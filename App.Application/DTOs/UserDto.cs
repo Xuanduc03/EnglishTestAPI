@@ -17,7 +17,7 @@ namespace App.Application.DTOs
         public string? Phone { get; set; }
         public string? AvatarUrl { get; set; }
         public DateTime? DateOfBirth { get; set; }
-        public List<Guid>? RoleIds { get; set; }
+        public Guid RoleId { get; set; }
     }
 
 
@@ -29,7 +29,7 @@ namespace App.Application.DTOs
         public string? Phone { get; set; }
         public string? NewPassword { get; set; }
         public bool? IsActive { get; set; }
-        public List<Guid>? RoleIds { get; set; }
+        public Guid RoleId { get; set; }
     }
 
 

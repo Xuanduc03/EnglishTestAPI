@@ -12,7 +12,7 @@ namespace App.Application.Questions.Queries
     public record GetAllQuestionsQuery : BaseGetAllQuery<QuestionListDto>
     {
         public Guid? CategoryId { get; set; } // Quan trọng nhất: Để lọc theo Part
-        public string? QuestionType { get; set; } // SingleChoice, Essay...
+        public QuestionTypeEnum? QuestionType { get; set; }
         public Guid? DifficultyId { get; set; } // Thêm: Lọc theo độ khó
         public bool? IsActive { get; set; } // Thêm: Lọc theo trạng thái
         public string? SortBy { get; set; } // Thêm: Trường sắp xếp
@@ -67,9 +67,9 @@ namespace App.Application.Questions.Queries
             }
 
             // 5. Lọc theo loại câu hỏi
-            if (!string.IsNullOrEmpty(request.QuestionType))
+            if (request.QuestionType.HasValue)
             {
-                query = query.Where(x => x.QuestionType == request.QuestionType);
+                query = query.Where(x => x.QuestionType == request.QuestionType.Value);
             }
 
             // 4. Lọc ngày tháng

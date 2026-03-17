@@ -31,87 +31,60 @@ namespace App.Application.Users.Commands
             {
                 var dto = request.User;
 
-                // 1. Get existing user
+                // 1. Get user
                 var user = await _dbContext.Users
                     .Include(u => u.UserRoles)
                     .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
 
                 if (user == null)
-                {
-                    _logger.LogWarning("Attempt to update non-existent user: {UserId}", request.UserId);
                     throw new KeyNotFoundException("Người dùng không tồn tại");
-                }
 
-                // 2. Validate input
+                // 2. Validate
                 ValidateUserInput(dto);
 
-                // 3. Check duplicate email (nếu thay đổi)
+                // 3. Check email duplicate
                 if (!string.IsNullOrWhiteSpace(dto.Email) &&
                     dto.Email.ToLower() != user.Email.ToLower())
                 {
                     var emailExists = await _dbContext.Users
-                        .AnyAsync(u => u.Email.ToLower() == dto.Email.ToLower() && u.Id != request.UserId,
+                        .AnyAsync(u => u.Email.ToLower() == dto.Email.ToLower()
+                                       && u.Id != request.UserId,
                             cancellationToken);
 
                     if (emailExists)
-                    {
-                        _logger.LogWarning("Attempt to update user with existing email: {Email}", dto.Email);
                         throw new InvalidOperationException("Email đã được sử dụng");
-                    }
                 }
 
-               
-
-                // 5. Check duplicate phone (nếu thay đổi)
+                // 4. Check phone duplicate
                 if (!string.IsNullOrWhiteSpace(dto.Phone) && dto.Phone != user.Phone)
                 {
                     var phoneExists = await _dbContext.Users
-                        .AnyAsync(u => u.Phone == dto.Phone && u.Id != request.UserId,
+                        .AnyAsync(u => u.Phone == dto.Phone
+                                       && u.Id != request.UserId,
                             cancellationToken);
 
                     if (phoneExists)
-                    {
-                        _logger.LogWarning("Attempt to update user with existing phone: {Phone}", dto.Phone);
                         throw new InvalidOperationException("Số điện thoại đã được sử dụng");
-                    }
                 }
 
-                // 6. Track changes for logging
-                var changes = new List<string>();
-
-                // 7. Update user fields
-                if (!string.IsNullOrWhiteSpace(dto.Email) && dto.Email.ToLower() != user.Email.ToLower())
-                {
-                    changes.Add($"Email: {user.Email} -> {dto.Email}");
+                // 5. Update fields
+                if (!string.IsNullOrWhiteSpace(dto.Email))
                     user.Email = dto.Email.ToLower().Trim();
-                }
 
-                if (!string.IsNullOrWhiteSpace(dto.Fullname) && dto.Fullname != user.Fullname)
-                {
-                    changes.Add($"Fullname: {user.Fullname} -> {dto.Fullname}");
+                if (!string.IsNullOrWhiteSpace(dto.Fullname))
                     user.Fullname = dto.Fullname.Trim();
-                }
 
-                if (dto.Phone != null && dto.Phone != user.Phone)
-                {
-                    changes.Add($"Phone: {user.Phone ?? "null"} -> {dto.Phone}");
+                if (dto.Phone != null)
                     user.Phone = string.IsNullOrWhiteSpace(dto.Phone) ? null : dto.Phone.Trim();
-                }
 
-                if (dto.IsActive.HasValue && dto.IsActive.Value != user.IsActive)
-                {
-                    changes.Add($"IsActive: {user.IsActive} -> {dto.IsActive.Value}");
+                if (dto.IsActive.HasValue)
                     user.IsActive = dto.IsActive.Value;
-                }
 
-
-                // 8. Update password (nếu có)
+                // 6. Update password
                 if (!string.IsNullOrWhiteSpace(dto.NewPassword))
                 {
                     user.Password = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
-                    changes.Add("Password updated");
 
-                    // Revoke all refresh tokens khi đổi password
                     var activeTokens = await _dbContext.RefreshTokens
                         .Where(rt => rt.UserId == request.UserId && rt.RevokedAt == null)
                         .ToListAsync(cancellationToken);
@@ -122,45 +95,47 @@ namespace App.Application.Users.Commands
                     }
                 }
 
-                user.UpdatedAt = DateTime.UtcNow;
-                // 9. Update roles (nếu có)
-                if (dto.RoleIds != null)
+                // 7. Update role
+                if (dto.RoleId != null)
                 {
-                    // Validate roles
-                    var validRoles = await _dbContext.Roles
-                        .Where(r => dto.RoleIds.Contains(r.Id))
-                        .CountAsync(cancellationToken);
+                    var role = await _dbContext.Roles
+                        .FirstOrDefaultAsync(r => r.Id == dto.RoleId, cancellationToken);
 
-                    if (validRoles != dto.RoleIds.Count)
-                        throw new InvalidOperationException("Một hoặc nhiều Role không tồn tại");
+                    if (role == null)
+                        throw new InvalidOperationException("Role không tồn tại");
 
-                    // Remove old roles
-                    _dbContext.UserRoles.RemoveRange(user.UserRoles);
+                    // Remove old
+                    if (user.UserRoles.Any())
+                        _dbContext.UserRoles.RemoveRange(user.UserRoles);
 
-                    // Add new roles
-                    var newUserRoles = dto.RoleIds.Select(roleId => new UserRole
+                    // Add new
+                    var newRole = new UserRole
                     {
                         Id = Guid.NewGuid(),
                         UserId = user.Id,
-                        RoleId = roleId,
-                        AssignedAt = DateTime.UtcNow,
-                    }).ToList();
+                        RoleId = dto.RoleId,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        CreatedBy = request.UpdatedBy,
+                        AssignedBy = request.UpdatedBy
+                    };
 
-                    _dbContext.UserRoles.AddRange(newUserRoles);
-                    changes.Add($"Roles updated: {dto.RoleIds.Count} roles assigned");
+                    _dbContext.UserRoles.Add(newRole);
                 }
+
+                user.UpdatedAt = DateTime.UtcNow;
 
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
+
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
                 await transaction.RollbackAsync(cancellationToken);
                 throw;
             }
         }
-
         private void ValidateUserInput(UpdateUserDto dto)
         {
             var errors = new List<string>();
@@ -170,7 +145,7 @@ namespace App.Application.Users.Commands
                 errors.Add("Email không hợp lệ");
 
             // Username validation (nếu có)
-            if (!string.IsNullOrWhiteSpace(dto.Fullname))
+            if (string.IsNullOrWhiteSpace(dto.Fullname))
             {
                 errors.Add("Fullname không được để trống");
             }

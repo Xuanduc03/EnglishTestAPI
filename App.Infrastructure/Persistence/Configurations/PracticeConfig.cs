@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static Dapper.SqlMapper;
 
 namespace App.Infrastructure.Persistence.Configurations
 {
@@ -107,8 +108,21 @@ namespace App.Infrastructure.Persistence.Configurations
                 .HasDefaultValue(0);
 
             builder.Property(x => x.OrderIndex)
-                .IsRequired();
+            .IsRequired();
 
+            builder.Property(e => e.GradingStatus)
+          .HasConversion<string>();
+
+            builder.Property(e => e.TextAnswer)
+         .HasColumnType("longtext");
+
+            builder.Property(e => e.AiFeedback)
+                  .HasColumnType("longtext");
+
+            builder.Property(e => e.AiScoreDetailJson)
+                  .HasColumnType("longtext");
+
+          
             // ============================================
             // INDEXES
             // ============================================

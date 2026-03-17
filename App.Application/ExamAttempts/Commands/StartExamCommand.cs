@@ -3,29 +3,19 @@ using App.Application.Services.Interface;
 using App.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace App.Application.ExamAttempts.Commands
 {
-    // ============================================================
-    // COMMAND: START EXAM
-    // POST /api/exam-attempts/start
-    // ============================================================
     public class StartExamCommand : IRequest<StartExamResult>
     {
-        [Required]
-        public Guid ExamId { get; set; }
-        [Required]
-        public Guid UserId { get; set; }
+        [Required] public Guid ExamId { get; set; }
+        [Required] public Guid UserId { get; set; }
         public string? IpAddress { get; set; }
         public string? UserAgent { get; set; }
     }
 
+    // ── Result DTO ───────────────────────────────────────────────
     public class StartExamResult
     {
         public Guid AttemptId { get; set; }
@@ -33,44 +23,67 @@ namespace App.Application.ExamAttempts.Commands
         public DateTime? ExpiresAt { get; set; }
         public int TimeLimitSeconds { get; set; }
         public int TotalQuestions { get; set; }
+        public List<ExamSectionPreview> Sections { get; set; } = new();
+    }
 
-        // Danh sách câu hỏi (KHÔNG có đáp án đúng)
+    public class ExamSectionPreview
+    {
+        public Guid SectionId { get; set; }
+        public string SectionName { get; set; } = string.Empty;
+        public string SkillType { get; set; } = string.Empty;
+        public int OrderIndex { get; set; }
+        public string? Instructions { get; set; }
         public List<ExamQuestionPreview> Questions { get; set; } = new();
     }
 
     public class ExamQuestionPreview
     {
-        public Guid ExamQuestionId { get; set; }      // ID trong bảng ExamQuestion
+        public Guid ExamQuestionId { get; set; }
         public Guid QuestionId { get; set; }
-        public int OrderIndex { get; set; }
+        public int OrderIndex { get; set; }   // 0-based global
         public double Point { get; set; }
-        public string Content { get; set; }
-        public string QuestionType { get; set; }
-        public List<AnswerOption> Answers { get; set; } = new();
+
+        // ✅ null với Part 3/4 (ẩn transcript) — FE dựa vào groupContent
+        public string? Content { get; set; }
+        public QuestionTypeEnum QuestionType { get; set; } = QuestionTypeEnum.SingleChoice;
+
+        // Media câu đơn
         public bool HasAudio { get; set; }
         public bool HasImage { get; set; }
         public string? AudioUrl { get; set; }
         public string? ImageUrl { get; set; }
+
+        // Group info
+        public Guid? GroupId { get; set; }
+        // ✅ null với Part 3/4 (ẩn transcript hội thoại)
+        public string? GroupContent { get; set; }
+        public string? GroupAudioUrl { get; set; }
+        public string? GroupImageUrl { get; set; }
+
+        public List<AnswerOption> Answers { get; set; } = new();
     }
+
     public class AnswerOption
     {
         public Guid Id { get; set; }
-        public string Content { get; set; }
+        // ✅ null với Part 1/2 (ẩn nội dung đáp án, chỉ phát audio)
+        public string? Content { get; set; }
         public int OrderIndex { get; set; }
-        // ❌ KHÔNG GỬI IsCorrect cho FE khi đang thi!
     }
+
+    // ── Handler ──────────────────────────────────────────────────
     public class StartExamCommandHandler : IRequestHandler<StartExamCommand, StartExamResult>
     {
         private readonly IAppDbContext _context;
         private readonly ICurrentUserService _currentUserService;
-        private const int MaxQuestionsPerExam = 500; // Safety limit
-        private const int MaxDurationMinutes = 480; // 8 hours max
+        private const int MaxQuestionsPerExam = 500;
+        private const int MaxDurationMinutes = 480;
 
-        // Constructor nhận dependencies từ DI container
-        public StartExamCommandHandler(IAppDbContext context, ICurrentUserService currentUserService)
+        public StartExamCommandHandler(
+            IAppDbContext context,
+            ICurrentUserService currentUserService)
         {
-            // Guard clauses: Kiểm tra null và throw ngay nếu DI inject null
-            _context = context ?? throw new ArgumentNullException(nameof(context)); ;
+            _context = context ?? throw new ArgumentNullException(nameof(context));
             _currentUserService = currentUserService ?? throw new ArgumentNullException(nameof(currentUserService));
         }
 
@@ -78,262 +91,263 @@ namespace App.Application.ExamAttempts.Commands
             StartExamCommand request,
             CancellationToken cancellationToken)
         {
-            // 0. authorization
-            Guid currentUserId;
-            bool isGuest = false;
+            // ── 0. Auth ───────────────────────────────────────────
             var loggedInUserId = _currentUserService.UserId;
+            Guid currentUserId;
 
             if (request.UserId == Guid.Empty)
             {
-                currentUserId = Guid.NewGuid();
-                isGuest = true;
+                currentUserId = Guid.NewGuid(); // guest
             }
             else
             {
                 if (loggedInUserId == Guid.Empty)
-                {
-                    throw new UnauthorizedAccessException(
-                        "Người dùng chưa được xác thực. Vui lòng đăng nhập để sử dụng UserId được cung cấp.");
-                }
+                    throw new UnauthorizedAccessException("Người dùng chưa xác thực.");
 
                 if (request.UserId != loggedInUserId)
-                {
-                    throw new UnauthorizedAccessException(
-                        $"Người dùng đã đăng nhập ({loggedInUserId}) không được phép bắt đầu bài thi cho người dùng khác ({request.UserId}).");
-                }
+                    throw new UnauthorizedAccessException("Không thể bắt đầu bài thi cho người dùng khác.");
+
                 currentUserId = request.UserId;
             }
 
-            // 1. load & validate exam 
+            // ── 1. Load & validate exam ───────────────────────────
             var exam = await _context.Exams
-               .AsNoTracking()
-               .Where(e => e.Id == request.ExamId && !e.IsDeleted)
-               .FirstOrDefaultAsync(cancellationToken)
-               ?? throw new KeyNotFoundException(
-                   $"Không tìm thấy bài thi {request.ExamId} hoặc bài thi đã bị xóa.");
+                .AsNoTracking()
+                .Where(e => e.Id == request.ExamId && !e.IsDeleted)
+                .FirstOrDefaultAsync(cancellationToken)
+                ?? throw new KeyNotFoundException($"Không tìm thấy bài thi {request.ExamId}");
 
             ValidateExamStatus(exam);
 
-            // === 2. CHECK USER CAN START ===
+            // ── 2. Check active attempt ───────────────────────────
             using var transaction = await _context.BeginTransactionAsync(cancellationToken);
+            try
             {
-                try
+                var activeAttempt = await _context.ExamAttempts
+                    .FirstOrDefaultAsync(a =>
+                        a.UserId == currentUserId &&
+                        a.ExamId == request.ExamId &&
+                        a.Status == ExamAttemptStatus.InProgress &&
+                        a.ExpiresAt > DateTime.UtcNow,
+                        cancellationToken);
+
+                if (activeAttempt != null)
+                    throw new InvalidOperationException(
+                        $"Đã tồn tại phiên thi đang làm: {activeAttempt.Id}");
+
+                // ── 3. Create attempt ─────────────────────────────
+                var now = DateTime.UtcNow;
+                var timeLimitSeconds = CalculateTimeLimitSeconds(exam.Duration);
+
+                var attempt = new ExamAttempt
                 {
-                    var activeAttempt = await _context.ExamAttempts
-                        .FirstOrDefaultAsync(a =>
-                            a.UserId == request.UserId &&
-                            a.ExamId == request.ExamId &&
-                            a.Status == ExamAttemptStatus.InProgress &&
-                            a.ExpiresAt > DateTime.UtcNow,
-                            cancellationToken)
-                        ?? null;
+                    Id = Guid.NewGuid(),
+                    UserId = currentUserId,
+                    ExamId = exam.Id,
+                    StartedAt = now,
+                    ExpiresAt = now.AddSeconds(timeLimitSeconds),
+                    TimeLimitSeconds = timeLimitSeconds,
+                    Status = ExamAttemptStatus.InProgress,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                };
 
-                    if (activeAttempt != null)
-                    {
-                        throw new InvalidOperationException(
-                                $"Đã tồn tại phiên thi đang làm: {activeAttempt.Id}. Vui lòng tiếp tục hoặc nộp bài trước khi bắt đầu phiên mới.");
-                    }
+                // ── 4. Load sections + questions ──────────────────
+                var sections = await LoadSectionsWithQuestions(request.ExamId, cancellationToken);
+                var allQuestions = sections.SelectMany(s => s.Questions).ToList();
 
-                    // === 3. CREATE EXAM ATTEMPT ===
-                    var now = DateTime.UtcNow;
-                    var timeLimitSeconds = CalculateTimeLimitSeconds(exam.Duration);
-                    var expiresAt = now.AddSeconds(timeLimitSeconds);
+                if (!allQuestions.Any())
+                    throw new InvalidOperationException("Bài thi không có câu hỏi");
 
-                    var attempt = new ExamAttempt
-                    {
-                        Id = Guid.NewGuid(),
-                        UserId = request.UserId,
-                        ExamId = exam.Id,
-                        StartedAt = now,
-                        ExpiresAt = expiresAt,
-                        TimeLimitSeconds = timeLimitSeconds,
-                        Status = ExamAttemptStatus.InProgress,
-                        CreatedAt = now,
-                        UpdatedAt = now,
-                    };
+                if (allQuestions.Count > MaxQuestionsPerExam)
+                    throw new InvalidOperationException(
+                        $"Bài thi vượt quá giới hạn {MaxQuestionsPerExam} câu");
 
-                    // === 4. LOAD QUESTIONS (Separate Query - Avoid Cartesian) ===
-                    var allQuestions = await LoadQuestionsOptimized(
-                        request.ExamId, cancellationToken);
+                attempt.TotalQuestions = allQuestions.Count;
 
-                    if (!allQuestions.Any())
-                        throw new InvalidOperationException(
-                            "Bài thi không có câu hỏi để hiển thị");
-
-                    if (allQuestions.Count > MaxQuestionsPerExam)
-                        throw new InvalidOperationException(
-                             $"Bài thi vượt quá giới hạn số câu hỏi cho phép: {allQuestions.Count}/{MaxQuestionsPerExam}.");
-
-                    attempt.TotalQuestions = allQuestions.Count;
-
-                    // === 5. CREATE EXAM ANSWERS ===
-                    var examAnswers = allQuestions.Select(eq => new ExamAnswer
-                    {
-                        Id = Guid.NewGuid(),
-                        ExamAttemptId = attempt.Id,
-                        ExamQuestionId = eq.Id,
-                        QuestionId = eq.QuestionId,
-                        IsAnswered = false,
-                        IsCorrect = false, 
-                        Point = 0,
-                        VersionNumber = 1,
-                        CreatedAt = now,
-                        UpdatedAt = now,
-                    }).ToList();
-
-                    // === 6. ANTI-CHEAT CHECK ===
-                    //var antiCheatResult = await _antiCheatService.CheckStartExamAsync(
-                    //    request.UserId, request.ExamId, request.IpAddress, cancellationToken);
-
-                    //if (antiCheatResult.IsSuspicious)
-                    //{
-                    //    attempt.AntiCheatFlags.Add(antiCheatResult.Reason);
-                    //} 
-
-                    // === 7. SAVE TO DB ===
-                    _context.ExamAttempts.Add(attempt);
-                    _context.ExamAnswers.AddRange(examAnswers);
-                    await _context.SaveChangesAsync(cancellationToken);
-
-                    await transaction.CommitAsync(cancellationToken);
-
-                    // === 8. BUILD RESPONSE ===
-                    var result = BuildStartExamResult(attempt, allQuestions);
-                    return result;
-                }
-                catch (Exception ex)
+                // ── 5. Create exam answers ────────────────────────
+                var examAnswers = allQuestions.Select(eq => new ExamAnswer
                 {
-                    await transaction.RollbackAsync(cancellationToken);
-                    throw;
-                }
+                    Id = Guid.NewGuid(),
+                    ExamAttemptId = attempt.Id,
+                    ExamQuestionId = eq.Id,
+                    QuestionId = eq.QuestionId,
+                    IsAnswered = false,
+                    IsCorrect = false,
+                    Point = 0,
+                    VersionNumber = 1,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                }).ToList();
+
+                // ── 6. Save ───────────────────────────────────────
+                _context.ExamAttempts.Add(attempt);
+                _context.ExamAnswers.AddRange(examAnswers);
+                await _context.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+
+                // ── 7. Build response ─────────────────────────────
+                return BuildResult(attempt, sections);
+            }
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
             }
         }
 
-
-        // ✅ HELPER: Validate Exam Status
-        private void ValidateExamStatus(Exam exam)
+        // ── Load sections với questions ───────────────────────────
+        private async Task<List<SectionWithQuestions>> LoadSectionsWithQuestions(
+            Guid examId, CancellationToken ct)
         {
-            if (exam.Status != ExamStatus.Published)
-                throw new InvalidOperationException(
-                    $"Trạng thái bài thi hiện tại là {exam.Status}, yêu cầu phải ở trạng thái Published.");
-
-            var now = DateTime.UtcNow;
-            if (exam.StartDate.HasValue && exam.StartDate > now)
-                throw new InvalidOperationException(
-                    $"Bài thi sẽ bắt đầu vào lúc {exam.StartDate}, hiện chưa đến thời gian mở thi.");
-
-            if (exam.EndDate.HasValue && exam.EndDate < now)
-                throw new InvalidOperationException(
-                     $"Bài thi đã kết thúc vào lúc {exam.EndDate}, hiện không còn khả dụng.");
-
-            if (exam.Duration <= 0 || exam.Duration > MaxDurationMinutes)
-                throw new InvalidOperationException(
-                    $"Thời lượng bài thi không hợp lệ: {exam.Duration} phút.");
-
-            if (string.IsNullOrEmpty(exam.Code))
-                throw new InvalidOperationException("Bài thi chưa được cấu hình mã đề (Exam Code).");
-        }
-
-
-        // ✅ HELPER: Calculate Time Limit (Validation)
-        private int CalculateTimeLimitSeconds(int durationMinutes)
-        {
-            if (durationMinutes <= 0 || durationMinutes > MaxDurationMinutes)
-                throw new ArgumentOutOfRangeException(
-                    nameof(durationMinutes),
-                    $"Thời lượng bài thi phải nằm trong khoảng từ 1 đến {MaxDurationMinutes} phút.");
-
-            return durationMinutes * 60;
-        }
-
-
-        // ✅ HELPER: Load Questions Optimized (Avoid N+1)
-        private async Task<List<ExamQuestionWithAnswers>> LoadQuestionsOptimized(
-            Guid examId,
-            CancellationToken cancellationToken)
-        {
-            // ✅ Use AsNoTracking + separate queries
             var sections = await _context.ExamSections
                 .AsNoTracking()
                 .Where(s => s.ExamId == examId && !s.IsDeleted)
+                .Include(s => s.Category)
+                .Include(s => s.ExamQuestions.Where(eq => !eq.IsDeleted))
+                    .ThenInclude(eq => eq.Question)
+                        .ThenInclude(q => q.Answers.OrderBy(a => a.OrderIndex))
+                .Include(s => s.ExamQuestions.Where(eq => !eq.IsDeleted))
+                    .ThenInclude(eq => eq.Question)
+                        .ThenInclude(q => q.Media)
+                .Include(s => s.ExamQuestions.Where(eq => !eq.IsDeleted))
+                    .ThenInclude(eq => eq.Question)
+                        .ThenInclude(q => q.Group)
+                            .ThenInclude(g => g.Media)
                 .OrderBy(s => s.OrderIndex)
-                .Select(s => new { s.Id, s.OrderIndex })
-                .ToListAsync(cancellationToken);
+                .ToListAsync(ct);
 
-            var questions = await _context.ExamQuestions
-                .AsNoTracking()
-                .Where(eq => sections.Select(s => s.Id).Contains(eq.ExamSectionId))
-                .Include(eq => eq.Question)
-                    .ThenInclude(q => q.Answers.OrderBy(a => a.OrderIndex))
-                .Include(eq => eq.Question)
-                    .ThenInclude(q => q.Media)
-                .OrderBy(eq => eq.OrderIndex)
-                .ToListAsync(cancellationToken);
-
-            return questions
-                .OrderBy(q => sections.FirstOrDefault(s => s.Id == q.ExamSectionId)?.OrderIndex)
-                .ThenBy(q => q.OrderIndex)
-                .Select(eq => new ExamQuestionWithAnswers
-                {
-                    Id = eq.Id,
-                    QuestionId = eq.QuestionId,
-                    OrderIndex = eq.OrderIndex,
-                    Point = (double)eq.Point,
-                    Question = eq.Question,
-                })
-                .ToList();
+            return sections.Select(s => new SectionWithQuestions
+            {
+                Section = s,
+                Questions = s.ExamQuestions
+                    .Where(eq => !eq.IsDeleted)
+                    .OrderBy(eq => eq.OrderIndex)
+                    .ToList()
+            }).ToList();
         }
 
-
-        // ✅ HELPER: Build Response (No Correct Answers)
-        private StartExamResult BuildStartExamResult(
+        // ── Build response ────────────────────────────────────────
+        private StartExamResult BuildResult(
             ExamAttempt attempt,
-            List<ExamQuestionWithAnswers> questions)
+            List<SectionWithQuestions> sections)
         {
+            int globalIndex = 0;
+
             return new StartExamResult
             {
                 AttemptId = attempt.Id,
                 StartedAt = attempt.StartedAt,
-                ExpiresAt = attempt?.ExpiresAt,
+                ExpiresAt = attempt.ExpiresAt,
                 TimeLimitSeconds = attempt.TimeLimitSeconds,
                 TotalQuestions = attempt.TotalQuestions,
-                Questions = questions.Select(eq => new ExamQuestionPreview
+
+                Sections = sections.Select(sw => new ExamSectionPreview
                 {
-                    ExamQuestionId = eq.Id,
-                    QuestionId = eq.QuestionId,
-                    OrderIndex = eq.OrderIndex,
-                    Point = eq.Point,
-                    Content = eq.Question.Content ?? string.Empty,
-                    QuestionType = eq.Question.QuestionType,
-                    HasAudio = eq.Question.Media?.Any(m => m.MediaType == "audio") ?? false,
-                    HasImage = eq.Question.Media?.Any(m => m.MediaType == "image") ?? false,
-                    AudioUrl = eq.Question.Media?
-                        .FirstOrDefault(m => m.MediaType == "audio")?.Url,
-                    ImageUrl = eq.Question.Media?
-                        .FirstOrDefault(m => m.MediaType == "image")?.Url,
-                    Answers = eq.Question.Answers
-                        .OrderBy(a => a.OrderIndex)
-                        .ThenBy(a => a.Id) // Deterministic ordering
-                        .Select(a => new AnswerOption
+                    SectionId = sw.Section.Id,
+                    SectionName = sw.Section.Category?.Name ?? "Unknown",
+                    SkillType = sw.Section.Category?.Code ?? "",
+                    OrderIndex = sw.Section.OrderIndex,
+                    Instructions = sw.Section.Instructions,
+
+                    Questions = sw.Questions.Select(eq =>
+                    {
+                        var q = eq.Question;
+
+                        // Detect loại part dựa vào media của group/câu
+                        var hasGroupAudio = q.Group?.Media?.Any(m => IsAudio(m.MediaType, m.Url)) ?? false;
+                        var hasOwnAudio = q.Media?.Any(m => IsAudio(m.MediaType, m.Url)) ?? false;
+                        var isListeningGroup = q.GroupId.HasValue && hasGroupAudio; // Part 3, 4
+                        var isListeningSingle = !q.GroupId.HasValue && hasOwnAudio;  // Part 1, 2
+
+                        return new ExamQuestionPreview
                         {
-                            Id = a.Id,
-                            Content = a.Content ?? string.Empty,
-                            OrderIndex = a.OrderIndex,
-                            // ❌ NEVER send IsCorrect!
-                        })
-                        .ToList()
+                            ExamQuestionId = eq.Id,
+                            QuestionId = eq.QuestionId,
+                            OrderIndex = globalIndex++,  
+                            Point = (double)eq.Point,
+                            QuestionType = q.QuestionType,
+
+                            Content = q.Content,
+
+                            // Media câu đơn
+                            HasAudio = hasOwnAudio,
+                            HasImage = q.Media?.Any(m => IsImage(m.MediaType, m.Url)) ?? false,
+                            AudioUrl = hasOwnAudio
+                                ? q.Media!.First(m => IsAudio(m.MediaType, m.Url)).Url
+                                : null,
+                            ImageUrl = q.Media?.FirstOrDefault(m => IsImage(m.MediaType, m.Url))?.Url,
+
+                            // Group info
+                            GroupId = q.GroupId,
+                            GroupContent = isListeningGroup ? null : q.Group?.Content,
+                            GroupAudioUrl = q.Group?.Media?
+                                .FirstOrDefault(m => IsAudio(m.MediaType, m.Url))?.Url,
+                            GroupImageUrl = q.Group?.Media?
+                                .FirstOrDefault(m => IsImage(m.MediaType, m.Url))?.Url,
+
+                            Answers = q.Answers
+                                .OrderBy(a => a.OrderIndex)
+                                .Select(a => new AnswerOption
+                                {
+                                    Id = a.Id,
+                                    Content = isListeningSingle ? null : a.Content,
+                                    OrderIndex = a.OrderIndex,
+                                })
+                                .ToList(),
+                        };
+                    }).ToList()
                 }).ToList()
             };
         }
 
-        //  HELPER: Helper class for loading
-        private class ExamQuestionWithAnswers
+        // ── Helpers ───────────────────────────────────────────────
+        private void ValidateExamStatus(Exam exam)
         {
-            public Guid Id { get; set; }
-            public Guid QuestionId { get; set; }
-            public int OrderIndex { get; set; }
-            public double Point { get; set; }
-            public Question Question { get; set; }
+            if (exam.Status != ExamStatus.Published)
+                throw new InvalidOperationException($"Bài thi chưa được xuất bản ({exam.Status})");
+
+            var now = DateTime.UtcNow;
+            if (exam.StartDate.HasValue && exam.StartDate > now)
+                throw new InvalidOperationException($"Bài thi chưa mở: {exam.StartDate}");
+            if (exam.EndDate.HasValue && exam.EndDate < now)
+                throw new InvalidOperationException($"Bài thi đã kết thúc: {exam.EndDate}");
+            if (exam.Duration <= 0 || exam.Duration > MaxDurationMinutes)
+                throw new InvalidOperationException($"Thời lượng không hợp lệ: {exam.Duration} phút");
+            if (string.IsNullOrEmpty(exam.Code))
+                throw new InvalidOperationException("Bài thi chưa có mã đề");
+        }
+
+        private int CalculateTimeLimitSeconds(int durationMinutes)
+        {
+            if (durationMinutes <= 0 || durationMinutes > MaxDurationMinutes)
+                throw new ArgumentOutOfRangeException(nameof(durationMinutes));
+            return durationMinutes * 60;
+        }
+
+        private static bool IsAudio(string? t, string? u) => ResolveMediaType(t, u) == "audio";
+        private static bool IsImage(string? t, string? u) => ResolveMediaType(t, u) == "image";
+
+        private static string ResolveMediaType(string? mediaType, string? url) =>
+            !string.IsNullOrWhiteSpace(mediaType)
+                ? mediaType.ToLower()
+                : GetTypeFromUrl(url);
+
+        private static string GetTypeFromUrl(string? url)
+        {
+            if (string.IsNullOrEmpty(url)) return "unknown";
+            var u = url.ToLower();
+            if (u.EndsWith(".mp3") || u.EndsWith(".wav") || u.EndsWith(".ogg") || u.EndsWith(".m4a")) return "audio";
+            if (u.EndsWith(".jpg") || u.EndsWith(".jpeg") || u.EndsWith(".png") || u.EndsWith(".webp")) return "image";
+            if (u.Contains("/video/upload/")) return "audio";
+            if (u.Contains("/image/upload/")) return "image";
+            return "unknown";
+        }
+
+        private class SectionWithQuestions
+        {
+            public ExamSection Section { get; set; }
+            public List<ExamQuestion> Questions { get; set; } = new();
         }
     }
 }

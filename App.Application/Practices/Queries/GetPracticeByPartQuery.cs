@@ -16,7 +16,6 @@ namespace App.Application.Practices.Queries
     {
         private readonly IAppDbContext _context;
 
-        // FIX 1: Bỏ IMapper
         public GetPracticeByPartQueryHandler(IAppDbContext context)
         {
             _context = context;
@@ -45,7 +44,6 @@ namespace App.Application.Practices.Queries
                 var questions = await GetQuestionsByPart(
                     categoryId, request.QuestionsPerPart, request.RandomOrder, cancellationToken);
 
-                // FIX 2: Gọi MapQuestions thay vì ProcessQuestions (không tồn tại)
                 var questionDtos = MapQuestions(questions, globalQuestionNumber);
 
                 session.Parts.Add(new PracticePartDto
@@ -77,28 +75,46 @@ namespace App.Application.Practices.Queries
                 .Include(q => q.Group).ThenInclude(g => g.Media)
                 .ToListAsync(cancellationToken);
 
+            // Tách câu hỏi đơn và câu hỏi thuộc group
             var singles = all.Where(q => q.GroupId == null).ToList();
-            var grouped = all.Where(q => q.GroupId != null).ToList();
+            var groups = all.Where(q => q.GroupId != null)
+                            .GroupBy(q => q.GroupId!.Value)
+                            .Select(g => g.OrderBy(q => q.OrderIndex).ToList()) // Sắp xếp theo OrderIndex
+                            .ToList();
 
-            if (!grouped.Any())
+            var result = new List<Question>();
+
+            if (groups.Any())
             {
-                return randomOrder
-                    ? singles.OrderBy(_ => Guid.NewGuid()).Take(count).ToList()
-                    : singles.Take(count).ToList();
+                // Xác định số câu mỗi group (mặc định 3, có thể điều chỉnh theo part nếu cần)
+                int questionsPerGroup = groups.First().Count; 
+                int groupsNeeded = (int)Math.Ceiling((double)count / questionsPerGroup);
+
+                var selectedGroups = randomOrder
+                    ? groups.OrderBy(_ => Guid.NewGuid()).Take(groupsNeeded).ToList()
+                    : groups.Take(groupsNeeded).ToList();
+
+                foreach (var group in selectedGroups)
+                    result.AddRange(group);
             }
 
-            var groupIds = grouped.Select(q => q.GroupId!.Value).Distinct().ToList();
-            if (randomOrder) groupIds = groupIds.OrderBy(_ => Guid.NewGuid()).ToList();
+            // Nếu vẫn chưa đủ số lượng, lấy thêm câu hỏi đơn
+            int remaining = count - result.Count;
+            if (remaining > 0 && singles.Any())
+            {
+                var extraSingles = randomOrder
+                    ? singles.OrderBy(_ => Guid.NewGuid()).Take(remaining).ToList()
+                    : singles.Take(remaining).ToList();
+                result.AddRange(extraSingles);
+            }
 
-            int groupsNeeded = (int)Math.Ceiling((double)count / 3.0);
-            var selectedGroupIds = groupIds.Take(groupsNeeded).ToHashSet();
+            // Nếu randomOrder, trộn toàn bộ kết quả (có thể giữ nguyên thứ tự group)
+            //if (randomOrder)
+            //{
+            //    result = result.OrderBy(_ => Guid.NewGuid()).ToList();
+            //}
 
-            return grouped
-                .Where(q => selectedGroupIds.Contains(q.GroupId!.Value))
-                .OrderBy(q => q.GroupId)
-                .ThenBy(q => q.Id)
-                .Take(count)
-                .ToList();
+            return result;
         }
 
         private static List<PracticeQuestionDto> MapQuestions(List<Question> questions, int startNumber)
@@ -106,10 +122,11 @@ namespace App.Application.Practices.Queries
             var result = new List<PracticeQuestionDto>();
             var orderIndex = 1;
 
+            // Gom các câu hỏi theo group để lấy thông tin nhóm
             var groupMeta = questions
                 .Where(q => q.GroupId.HasValue)
                 .GroupBy(q => q.GroupId!.Value)
-                .ToDictionary(g => g.Key, g => g.OrderBy(q => q.CreatedAt).ToList());
+                .ToDictionary(g => g.Key, g => g.OrderBy(q => q.OrderIndex).ToList());
 
             foreach (var q in questions)
             {
@@ -187,7 +204,6 @@ namespace App.Application.Practices.Queries
             return "unknown";
         }
 
-        // FIX 4: Bỏ ExtractPartNumberFromId (sync DB call — xấu), chỉ giữ static version
         private static int ExtractPartNumber(string partName)
         {
             if (string.IsNullOrEmpty(partName)) return 0;
@@ -197,8 +213,8 @@ namespace App.Application.Practices.Queries
 
         private static int CalculateDuration(List<PracticePartDto> parts)
         {
-            var t = new Dictionary<int, double> { { 1, .5 }, { 2, .5 }, { 3, 1.5 }, { 4, 1.5 }, { 5, .5 }, { 6, 1.0 }, { 7, 1.5 } };
-            return parts.Sum(p => t.TryGetValue(p.PartNumber, out var v) ? (int)(p.Questions.Count * v) : p.Questions.Count);
+            var timePerQuestion = new Dictionary<int, double> { { 1, 0.5 }, { 2, 0.5 }, { 3, 1.5 }, { 4, 1.5 }, { 5, 0.5 }, { 6, 1.0 }, { 7, 1.5 } };
+            return parts.Sum(p => (int)(p.Questions.Count * (timePerQuestion.TryGetValue(p.PartNumber, out var t) ? t : 1.0)));
         }
     }
 }
