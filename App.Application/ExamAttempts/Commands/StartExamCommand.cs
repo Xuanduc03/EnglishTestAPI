@@ -40,10 +40,8 @@ namespace App.Application.ExamAttempts.Commands
     {
         public Guid ExamQuestionId { get; set; }
         public Guid QuestionId { get; set; }
-        public int OrderIndex { get; set; }   // 0-based global
+        public int OrderIndex { get; set; }   
         public double Point { get; set; }
-
-        // ✅ null với Part 3/4 (ẩn transcript) — FE dựa vào groupContent
         public string? Content { get; set; }
         public QuestionTypeEnum QuestionType { get; set; } = QuestionTypeEnum.SingleChoice;
 
@@ -55,7 +53,6 @@ namespace App.Application.ExamAttempts.Commands
 
         // Group info
         public Guid? GroupId { get; set; }
-        // ✅ null với Part 3/4 (ẩn transcript hội thoại)
         public string? GroupContent { get; set; }
         public string? GroupAudioUrl { get; set; }
         public string? GroupImageUrl { get; set; }
@@ -66,7 +63,6 @@ namespace App.Application.ExamAttempts.Commands
     public class AnswerOption
     {
         public Guid Id { get; set; }
-        // ✅ null với Part 1/2 (ẩn nội dung đáp án, chỉ phát audio)
         public string? Content { get; set; }
         public int OrderIndex { get; set; }
     }
@@ -91,7 +87,7 @@ namespace App.Application.ExamAttempts.Commands
             StartExamCommand request,
             CancellationToken cancellationToken)
         {
-            // ── 0. Auth ───────────────────────────────────────────
+            // ── 0. Auth 
             var loggedInUserId = _currentUserService.UserId;
             Guid currentUserId;
 
@@ -110,7 +106,7 @@ namespace App.Application.ExamAttempts.Commands
                 currentUserId = request.UserId;
             }
 
-            // ── 1. Load & validate exam ───────────────────────────
+            // ── 1. Load & validate exam
             var exam = await _context.Exams
                 .AsNoTracking()
                 .Where(e => e.Id == request.ExamId && !e.IsDeleted)
@@ -119,7 +115,7 @@ namespace App.Application.ExamAttempts.Commands
 
             ValidateExamStatus(exam);
 
-            // ── 2. Check active attempt ───────────────────────────
+            // ── 2. Check active attempt 
             using var transaction = await _context.BeginTransactionAsync(cancellationToken);
             try
             {
@@ -135,7 +131,7 @@ namespace App.Application.ExamAttempts.Commands
                     throw new InvalidOperationException(
                         $"Đã tồn tại phiên thi đang làm: {activeAttempt.Id}");
 
-                // ── 3. Create attempt ─────────────────────────────
+                // ── 3. Create attempt 
                 var now = DateTime.UtcNow;
                 var timeLimitSeconds = CalculateTimeLimitSeconds(exam.Duration);
 
@@ -152,7 +148,7 @@ namespace App.Application.ExamAttempts.Commands
                     UpdatedAt = now,
                 };
 
-                // ── 4. Load sections + questions ──────────────────
+                // ── 4. Load sections + questions
                 var sections = await LoadSectionsWithQuestions(request.ExamId, cancellationToken);
                 var allQuestions = sections.SelectMany(s => s.Questions).ToList();
 
@@ -165,7 +161,7 @@ namespace App.Application.ExamAttempts.Commands
 
                 attempt.TotalQuestions = allQuestions.Count;
 
-                // ── 5. Create exam answers ────────────────────────
+                // ── 5. Create exam answers 
                 var examAnswers = allQuestions.Select(eq => new ExamAnswer
                 {
                     Id = Guid.NewGuid(),
@@ -180,13 +176,13 @@ namespace App.Application.ExamAttempts.Commands
                     UpdatedAt = now,
                 }).ToList();
 
-                // ── 6. Save ───────────────────────────────────────
+                // ── 6. Save 
                 _context.ExamAttempts.Add(attempt);
                 _context.ExamAnswers.AddRange(examAnswers);
                 await _context.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 
-                // ── 7. Build response ─────────────────────────────
+                // ── 7. Build response 
                 return BuildResult(attempt, sections);
             }
             catch
@@ -196,7 +192,7 @@ namespace App.Application.ExamAttempts.Commands
             }
         }
 
-        // ── Load sections với questions ───────────────────────────
+        // ── Load sections với questions 
         private async Task<List<SectionWithQuestions>> LoadSectionsWithQuestions(
             Guid examId, CancellationToken ct)
         {
@@ -227,7 +223,7 @@ namespace App.Application.ExamAttempts.Commands
             }).ToList();
         }
 
-        // ── Build response ────────────────────────────────────────
+        // ── Build response
         private StartExamResult BuildResult(
             ExamAttempt attempt,
             List<SectionWithQuestions> sections)
@@ -301,7 +297,7 @@ namespace App.Application.ExamAttempts.Commands
             };
         }
 
-        // ── Helpers ───────────────────────────────────────────────
+        // ── Helpers
         private void ValidateExamStatus(Exam exam)
         {
             if (exam.Status != ExamStatus.Published)

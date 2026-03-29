@@ -4,7 +4,6 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
-
 namespace App.Application.Exams.Commands
 {
     // CẬP NHẬT THÔNG TIN ĐỀ THI
@@ -18,6 +17,9 @@ namespace App.Application.Exams.Commands
         public ExamType? Type { get; set; }
         public bool? ShuffleQuestions { get; set; }
         public bool? ShuffleAnswers { get; set; }
+
+        // 👇 THÊM TRƯỜNG NÀY ĐỂ HỨNG DATA "status: 0" TỪ FRONTEND
+        public ExamStatus? Status { get; set; }
     }
 
     public class UpdateExamHandler : IRequestHandler<UpdateExamCommand, bool>
@@ -45,10 +47,6 @@ namespace App.Application.Exams.Commands
             if (!exam.IsActive)
                 throw new Exception("Đề thi đã bị xóa");
 
-            // === BUSINESS RULE: CHỈ SỬA ĐƯỢC KHI DRAFT ===
-            if (exam.Status != ExamStatus.Draft)
-                throw new Exception("Chỉ được sửa đề thi ở trạng thái Draft");
-
             // === CHECK DUPLICATE CODE ===
             if (!string.IsNullOrWhiteSpace(request.Code) && request.Code != exam.Code)
             {
@@ -61,41 +59,65 @@ namespace App.Application.Exams.Commands
                 exam.Code = request.Code;
             }
 
+            bool isModified = false;
+
             // === UPDATE FIELDS (Chỉ update field không null) ===
-            if (!string.IsNullOrWhiteSpace(request.Title))
+            if (!string.IsNullOrWhiteSpace(request.Title) && request.Title != exam.Title)
             {
                 if (request.Title.Length > 200)
                     throw new ValidationException("Tên đề thi tối đa 200 ký tự");
                 exam.Title = request.Title;
+                isModified = true;
             }
 
-            if (request.Description != null)
+            if (request.Description != null && request.Description != exam.Description)
+            {
                 exam.Description = request.Description;
+                isModified = true;
+            }
 
-            if (request.Duration.HasValue)
+            if (request.Duration.HasValue && request.Duration.Value != exam.Duration)
             {
                 if (request.Duration.Value <= 0)
                     throw new ValidationException("Thời gian thi phải lớn hơn 0");
                 if (request.Duration.Value > 300)
                     throw new ValidationException("Thời gian thi tối đa 300 phút");
                 exam.Duration = request.Duration.Value;
+                isModified = true;
             }
 
-            if (request.Type.HasValue)
+            if (request.Type.HasValue && request.Type.Value != exam.Type)
+            {
                 exam.Type = request.Type.Value;
+                isModified = true;
+            }
 
-            if (request.ShuffleQuestions.HasValue)
+            if (request.ShuffleQuestions.HasValue && request.ShuffleQuestions.Value != exam.ShuffleQuestions)
+            {
                 exam.ShuffleQuestions = request.ShuffleQuestions.Value;
+                isModified = true;
+            }
 
-            if (request.ShuffleAnswers.HasValue)
+            if (request.ShuffleAnswers.HasValue && request.ShuffleAnswers.Value != exam.ShuffleAnswers)
+            {
                 exam.ShuffleAnswers = request.ShuffleAnswers.Value;
+                isModified = true;
+            }
 
-            // Update version để track changes
-            exam.Version++;
-            exam.UpdatedAt = DateTime.UtcNow;
+            if (request.Status.HasValue && request.Status.Value != exam.Status)
+            {
+                exam.Status = request.Status.Value;
+                isModified = true;
+            }
 
-            // === SAVE ===
-            await _context.SaveChangesAsync(cancellationToken);
+            if (isModified || (request.Code != null && request.Code != exam.Code))
+            {
+                // Update version để rack changes
+                exam.Version++;
+                exam.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync(cancellationToken);
+            }
 
             return true;
         }

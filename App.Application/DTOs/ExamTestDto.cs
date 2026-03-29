@@ -208,9 +208,17 @@ namespace App.Application.DTOs
         public Guid SectionId { get; set; }
         public string SectionName { get; set; }
         public int OrderIndex { get; set; }
+        public List<ExamReviewGroupDto> Groups { get; set; } = new();
+    }
+    public class ExamReviewGroupDto
+    {
+        public Guid GroupId { get; set; }
+        public string? PassageHtml { get; set; }
+        public string? Transcript { get; set; }
+        public string? AudioUrl { get; set; }
+        public string? ImageUrl { get; set; }
         public List<ExamReviewQuestionDto> Questions { get; set; } = new();
     }
-
     public class ExamReviewQuestionDto
     {
         public Guid ExamAnswerId { get; set; }
@@ -231,11 +239,11 @@ namespace App.Application.DTOs
         public List<ExamReviewAnswerDto> Answers { get; set; } = new();
 
         // Writing/Speaking
-        public string? TextAnswer { get; set; }
-        public string? AiFeedback { get; set; }
-        public string? AiScoreDetailJson { get; set; }
-        public bool IsAiGraded { get; set; }
-        public string GradingStatus { get; set; }
+        //public string? TextAnswer { get; set; }
+        //public string? AiFeedback { get; set; }
+        //public string? AiScoreDetailJson { get; set; }
+        //public bool IsAiGraded { get; set; }
+        //public string GradingStatus { get; set; }
     }
 
     public class ExamReviewAnswerDto

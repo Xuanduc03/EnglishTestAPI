@@ -1,6 +1,5 @@
 ﻿using App.Application.DTOs;
 using App.Application.Interfaces;
-using App.Application.Practices.Jobs;
 using App.Domain.Entities;
 using Hangfire;
 using MediatR;
@@ -85,36 +84,6 @@ namespace App.Application.Practices.Commands
                     practiceAnswer.IsMarkedForReview = submitted.IsMarkedForReview;
                     practiceAnswer.CreatedAt = DateTime.UtcNow;
                     practiceAnswer.GradingStatus = GradingStatusEnum.NotRequired;
-                }
-                // writing
-                else if (qType == QuestionTypeEnum.Writing)
-                {
-                    practiceAnswer.TextAnswer = submitted.TextAnswer;
-                    practiceAnswer.WordCount = submitted.WordCount
-                        ?? CountWords(submitted.TextAnswer);
-                    practiceAnswer.IsMarkedForReview = submitted.IsMarkedForReview;
-                    practiceAnswer.AnsweredAt = DateTime.UtcNow;
-                    practiceAnswer.GradingStatus = string.IsNullOrWhiteSpace(submitted.TextAnswer)
-                        ? GradingStatusEnum.NotRequired
-                        : GradingStatusEnum.Pending; // AI sẽ chấm sau
-
-                    if (practiceAnswer.GradingStatus == GradingStatusEnum.Pending)
-                        aiAnswerIds.Add(practiceAnswer.Id);
-                }
-                // speaking
-                else if (qType == QuestionTypeEnum.Speaking)
-                {
-                    practiceAnswer.AudioUrl = submitted.AudioUrl;
-                    practiceAnswer.AudioPublicId = submitted.AudioPublicId;
-                    practiceAnswer.RecordingDurationSeconds = submitted.RecordingDurationSeconds;
-                    practiceAnswer.IsMarkedForReview = submitted.IsMarkedForReview;
-                    practiceAnswer.AnsweredAt = DateTime.UtcNow;
-                    practiceAnswer.GradingStatus = string.IsNullOrWhiteSpace(submitted.AudioUrl)
-                        ? GradingStatusEnum.NotRequired
-                        : GradingStatusEnum.Pending;
-
-                    if (practiceAnswer.GradingStatus == GradingStatusEnum.Pending)
-                        aiAnswerIds.Add(practiceAnswer.Id);
                 }
             }
 
@@ -201,13 +170,6 @@ namespace App.Application.Practices.Commands
             {
                 await transaction.RollbackAsync(cancellation);
                 throw;
-            }
-
-            // ── 8. Enqueue AI jobs SAU KHI commit
-            foreach (var answerId in aiAnswerIds)
-            {
-                _jobs.Enqueue<PracticeAIGradingJob>(
-                    job => job.GradeAnswerAsync(answerId));
             }
 
             // 9 -return 

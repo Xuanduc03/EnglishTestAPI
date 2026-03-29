@@ -1,9 +1,7 @@
 ﻿using App.Application.DTOs;
 using App.Application.Practice.Commands;
 using App.Application.Practices.Commands;
-using App.Application.Practices.Commands.Writing;
 using App.Application.Practices.Queries;
-using App.Application.Writing.Queries;
 using App.Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -64,7 +62,7 @@ namespace App.Api.Controllers
         /// POST /api/practice/{sessionId}/submit
         /// </summary>
         [HttpPost("{sessionId}/submit")]
-        public async Task<IActionResult> SubmitPractice( Guid sessionId, [FromBody] SubmitPracticeRequest request)
+        public async Task<IActionResult> SubmitPractice(Guid sessionId, [FromBody] SubmitPracticeRequest request)
         {
             var command = new SubmitPracticeCommand(
                 sessionId,
@@ -215,156 +213,5 @@ namespace App.Api.Controllers
 
 
 
-        // ── Start ─────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Tạo Writing session mới.
-        /// CategoryIds phải thuộc Writing Part 1/2/3.
-        /// Trả về WritingSessionDto với đầy đủ câu hỏi và media.
-        /// </summary>
-        [HttpPost("writing/start")]
-        [ProducesResponseType(typeof(WritingSessionDto), StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Start(
-            [FromBody] StartWritingRequest request,
-            CancellationToken cancellationToken)
-        {
-            if (request.CategoryIds == null || request.CategoryIds.Count == 0)
-                return BadRequest("Vui lòng chọn ít nhất một phần Writing.");
-
-            var session = await _mediator.Send(new StartWritingPracticeCommand(
-                UserId: UserId,
-                CategoryIds: request.CategoryIds,
-                IsTimed: request.IsTimed,
-                TimeLimitMinutes: request.TimeLimitMinutes
-            ), cancellationToken);
-
-            return CreatedAtAction(nameof(GetResult),
-                new { sessionId = session.SessionId }, session);
-        }
-
-        // ── Autosave draft ────────────────────────────────────────────
-
-        /// <summary>
-        /// Autosave câu trả lời đang gõ (gọi mỗi 10-30s từ frontend).
-        /// Không trigger AI grading — chỉ lưu TextAnswer tạm thời.
-        /// </summary>
-        [HttpPost("writing/{sessionId:guid}/draft")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> SaveDraft(
-            Guid sessionId,
-            [FromBody] SaveDraftRequest request,
-            CancellationToken cancellationToken)
-        {
-            var saved = await _mediator.Send(new SaveWritingDraftCommand(
-                SessionId: sessionId,
-                UserId: UserId,
-                QuestionId: request.QuestionId,
-                TextAnswer: request.TextAnswer,
-                TimeSpentSeconds: request.TimeSpentSeconds
-            ), cancellationToken);
-
-            return saved ? NoContent() : NotFound();
-        }
-
-        // ── Submit ────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Nộp toàn bộ bài Writing.
-        /// Enqueue AI grading jobs ngay lập tức (Hangfire).
-        /// Trả về WritingSessionResultDto với IsFullyGraded = false
-        /// — client cần polling GET /result để biết khi nào xong.
-        /// </summary>
-        [HttpPost("writing/{sessionId:guid}/submit")]
-        [ProducesResponseType(typeof(WritingSessionResultDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status409Conflict)]
-        public async Task<IActionResult> Submit(
-            Guid sessionId,
-            [FromBody] SubmitWritingSessionRequest request,
-            CancellationToken cancellationToken)
-        {
-            if (request.Answers == null || request.Answers.Count == 0)
-                return BadRequest("Không có câu trả lời nào được nộp.");
-
-            try
-            {
-                var result = await _mediator.Send(new SubmitWritingSessionCommand(
-                    SessionId: sessionId,
-                    UserId: UserId,
-                    Answers: request.Answers,
-                    TotalTimeSeconds: request.TotalTimeSeconds
-                ), cancellationToken);
-
-                return Ok(result);
-            }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("already submitted"))
-            {
-                return Conflict(new { message = ex.Message });
-            }
-        }
-
-        // ── Result (polling) ──────────────────────────────────────────
-
-        /// <summary>
-        /// Lấy kết quả Writing session.
-        /// Client nên polling mỗi 5-10s khi IsFullyGraded = false.
-        /// Khi IsFullyGraded = true, OverallScore sẽ có giá trị (thang 0-200).
-        /// </summary>
-        [HttpGet("writing/{sessionId:guid}/result")]
-        [ProducesResponseType(typeof(WritingSessionResultDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetResult(
-            Guid sessionId,
-            CancellationToken cancellationToken)
-        {
-            var result = await _mediator.Send(
-                new GetWritingResultQuery(sessionId, UserId),
-                cancellationToken);
-
-            // Gợi ý client polling interval qua header
-            if (!result.IsFullyGraded)
-                Response.Headers.Append("X-Grading-Status", "pending");
-
-            return Ok(result);
-        }
-
-        // ── Review ────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Xem lại bài làm: câu hỏi + bài viết + AI feedback chi tiết.
-        /// Chỉ hiển thị đầy đủ sau khi IsFullyGraded = true.
-        /// </summary>
-        [HttpGet("writing/{sessionId:guid}/review")]
-        [ProducesResponseType(typeof(WritingReviewDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Review(
-            Guid sessionId,
-            CancellationToken cancellationToken)
-        {
-            var review = await _mediator.Send(
-                new GetWritingReviewQuery(sessionId, UserId),
-                cancellationToken);
-
-            return Ok(review);
-        }
     }
-
-    // ── Request models ────────────────────────────────────────────
-
-    public class StartWritingRequest
-    {
-        public List<Guid> CategoryIds { get; set; } = new();
-        public bool IsTimed { get; set; } = true;
-        public int? TimeLimitMinutes { get; set; } = 60;
-    }
-
-    public class SaveDraftRequest
-    {
-        public Guid QuestionId { get; set; }
-        public string TextAnswer { get; set; } = string.Empty;
-        public int TimeSpentSeconds { get; set; }
-    }
-
 }

@@ -5,11 +5,6 @@ using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace App.Application.Exams.Queries
 {
@@ -19,7 +14,12 @@ namespace App.Application.Exams.Queries
     /// </summary>
     public class GetFullTestsQuery : IRequest<List<ExamSummaryDto>>
     {
+        // THÊM THAM SỐ NÀY (Nullable để nếu FE không truyền thì lấy tất cả)
+        public ExamType? Type { get; set; }
+
         // Có thể thêm tham số phân trang sau nếu cần
+        // public int PageIndex { get; set; } = 1;
+        // public int PageSize { get; set; } = 20;
     }
 
     public class GetFullTestsQueryHandler : IRequestHandler<GetFullTestsQuery, List<ExamSummaryDto>>
@@ -35,12 +35,20 @@ namespace App.Application.Exams.Queries
 
         public async Task<List<ExamSummaryDto>> Handle(GetFullTestsQuery request, CancellationToken cancellationToken)
         {
-            // Lấy danh sách exam thỏa mãn điều kiện
-            var exams = await _context.Exams
+            // 1. Lấy danh sách exam thỏa mãn điều kiện và LỌC THEO TYPE (nếu có)
+            var query = _context.Exams
                 .Where(x => !x.IsDeleted
                     && x.Category == ExamCategory.FullTest
                     && x.Status == ExamStatus.Published
-                    && x.IsActive)
+                    && x.IsActive);
+
+            // NẾU FE CÓ TRUYỀN LÊN ExamType (VD: Type = ExamType.IELTS) THÌ LỌC TIẾP
+            if (request.Type.HasValue)
+            {
+                query = query.Where(x => x.Type == request.Type.Value);
+            }
+
+            var exams = await query
                 .OrderByDescending(x => x.CreatedAt)
                 .ProjectTo<ExamSummaryDto>(_mapper.ConfigurationProvider)
                 .ToListAsync(cancellationToken);
@@ -49,16 +57,19 @@ namespace App.Application.Exams.Queries
 
             var examIds = exams.Select(e => e.Id).ToList();
 
-            // Đếm số lượng attempt đang InProgress cho mỗi exam
+            // 2. Đếm số lượng attempt
+            // ⚠️ FIX BUG CHÍ MẠNG: Bạn phải gom cụm OR (InProgress || Submitted) vào trong ngoặc tròn ( )
+            // Nếu không có ngoặc, nó sẽ đếm TẤT CẢ các bài Submitted trong cả hệ thống (bất chấp ExamId là gì)
             var inProgressCounts = await _context.ExamAttempts
-                .Where(a => examIds.Contains(a.ExamId) && a.Status == ExamAttemptStatus.InProgress || a.Status == ExamAttemptStatus.Submitted)
+                .Where(a => examIds.Contains(a.ExamId)
+                         && (a.Status == ExamAttemptStatus.InProgress || a.Status == ExamAttemptStatus.Submitted))
                 .GroupBy(a => a.ExamId)
                 .Select(g => new { ExamId = g.Key, Count = g.Count() })
                 .ToListAsync(cancellationToken);
 
             var countDict = inProgressCounts.ToDictionary(x => x.ExamId, x => x.Count);
 
-            // Gán giá trị vào DTO
+            // 3. Gán giá trị vào DTO
             foreach (var exam in exams)
             {
                 exam.ActiveUserCount = countDict.GetValueOrDefault(exam.Id, 0);

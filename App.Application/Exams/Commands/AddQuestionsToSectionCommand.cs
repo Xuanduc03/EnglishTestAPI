@@ -114,33 +114,78 @@ namespace App.Application.Exams.Commands
         }
         private void ValidateQuestionLimit(ExamSection section, int totalAfterAdd)
         {
-            if (section.Exam.Type != ExamType.TOEIC) return;
             if (section.Category == null)
-                throw new ValidationException("Section chưa có category");
+                throw new ValidationException("Section chưa có category để phân loại.");
 
-            var limits = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            var categoryCode = (section.Category.Code ?? "").ToUpperInvariant();
+            var categoryName = (section.Category.Name ?? "").ToUpperInvariant();
+
+            if (section.Exam.Type == ExamType.TOEIC)
             {
-                { "Part 1", 6  },
-                { "Part 2", 25 },
-                { "Part 3", 39 },
-                { "Part 4", 30 },
-                { "Part 5", 30 },
-                { "Part 6", 16 },
-                { "Part 7", 54 },
-            };
+                var toeicLimits = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "PART 1", 6  },
+            { "PART 2", 25 },
+            { "PART 3", 39 },
+            { "PART 4", 30 },
+            { "PART 5", 30 },
+            { "PART 6", 16 },
+            { "PART 7", 54 },
+        };
 
-            var partKey = limits.ContainsKey(section.Category.Code ?? "")
-                ? section.Category.Code
-                : limits.ContainsKey(section.Category.Name ?? "")
-                    ? section.Category.Name
-                    : null;
+                // Match theo Name vì Code TOEIC thường là TOEIC_L_P1 etc.
+                var matchedKey = toeicLimits.Keys.FirstOrDefault(k =>
+                    categoryName.Contains(k.ToUpperInvariant()) ||
+                    categoryCode.Contains(k.Replace(" ", "").ToUpperInvariant()));
 
-            if (partKey == null) return;
+                if (matchedKey != null)
+                {
+                    var max = toeicLimits[matchedKey];
+                    if (totalAfterAdd > max)
+                        throw new ValidationException(
+                            $"TOEIC {matchedKey} chỉ được tối đa {max} câu. " +
+                            $"Hiện tại sẽ là {totalAfterAdd} câu sau khi thêm.");
+                }
+            }
+            else if (section.Exam.Type == ExamType.IELTS)
+            {
+                // Map theo Code convention: IELTS_L_S1, IELTS_L_S2, IELTS_R_P1...
+                var ieltsLimits = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            // Code-based
+            { "IELTS_L_S1", 10 },
+            { "IELTS_L_S2", 10 },
+            { "IELTS_L_S3", 10 },
+            { "IELTS_L_S4", 10 },
+            { "IELTS_R_P1", 14 },
+            { "IELTS_R_P2", 14 },
+            { "IELTS_R_P3", 14 },
 
-            var max = limits[partKey];
-            if (totalAfterAdd > max)
-                throw new ValidationException(
-                    $"{partKey} chỉ được tối đa {max} câu. Hiện tại sẽ là {totalAfterAdd} câu sau khi thêm.");
+            // Name-based fallback
+            { "SECTION 1", 10 },
+            { "SECTION 2", 10 },
+            { "SECTION 3", 10 },
+            { "SECTION 4", 10 },
+            { "PASSAGE 1", 14 },
+            { "PASSAGE 2", 14 },
+            { "PASSAGE 3", 14 },
+        };
+
+                // Ưu tiên match Code trước, fallback Name
+                var matchedKey = ieltsLimits.Keys.FirstOrDefault(k =>
+                    categoryCode == k.ToUpperInvariant())
+                    ?? ieltsLimits.Keys.FirstOrDefault(k =>
+                    categoryName == k.ToUpperInvariant());
+
+                if (matchedKey != null)
+                {
+                    var max = ieltsLimits[matchedKey];
+                    if (totalAfterAdd > max)
+                        throw new ValidationException(
+                            $"IELTS {section.Category.Name} chỉ được tối đa {max} câu. " +
+                            $"Hiện tại sẽ là {totalAfterAdd} câu sau khi thêm.");
+                }
+            }
         }
     }
 }

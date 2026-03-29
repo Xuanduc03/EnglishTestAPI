@@ -65,21 +65,9 @@ namespace App.Application.Questions.Commands
         QuestionTypeEnum.Matching,
     };
 
-        // Các type AI chấm — không cần đáp án cố định
-        private static readonly HashSet<QuestionTypeEnum> AiGradedTypes = new()
-    {
-        QuestionTypeEnum.Writing,
-        QuestionTypeEnum.Speaking,
-        QuestionTypeEnum.ShortAnswer,
-        QuestionTypeEnum.NoteCompletion,
-        QuestionTypeEnum.FormCompletion,
-        QuestionTypeEnum.MapLabeling,
-        QuestionTypeEnum.SentenceCompletion,
-        QuestionTypeEnum.FillBlank,
-    };
 
         public static bool IsMcq(QuestionTypeEnum type) => McqTypes.Contains(type);
-        public static bool IsAiGraded(QuestionTypeEnum type) => AiGradedTypes.Contains(type);
+
 
         // Số đáp án theo Part + Type
         public static int GetExpectedAnswerCount(string partCode, QuestionTypeEnum type) =>
@@ -90,6 +78,11 @@ namespace App.Application.Questions.Commands
                 (_, QuestionTypeEnum.YesNoNotGiven) => 3,  // Yes/No/Not Given
                 _ => 4,
             };
+
+        internal static bool IsFillIn(QuestionTypeEnum questionType)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     public class CreateQuestionGroupCommandHandler
@@ -218,36 +211,70 @@ namespace App.Application.Questions.Commands
             return category;
         }
 
-        private void ValidateQuestion(CreateQuestionDto dto, int index, Category partCategory)
+        private void ValidateQuestion(
+            CreateQuestionDto dto,
+            int index,
+            Category partCategory)
         {
             if (string.IsNullOrWhiteSpace(dto.Content))
-                throw new ValidationException($"Câu hỏi {index}: Nội dung không được để trống");
+                throw new ValidationException(
+                    $"Câu hỏi {index}: Nội dung không được để trống");
 
-            if (QuestionTypeHelper.IsAiGraded(dto.QuestionType)) return;
+            var type = dto.QuestionType;
+            var partCode = partCategory.Code.Trim().ToUpper();
+            var isToeic = partCode.StartsWith("PART");
 
-            if (QuestionTypeHelper.IsMcq(dto.QuestionType))
+            // ── Completion types (10-16) ──────────────────────────
+            // Phải có ít nhất 1 answer IsCorrect=true
+            if (IsCompletionType(type))
+            {
+                if (dto.Answers == null || !dto.Answers.Any())
+                    throw new ValidationException(
+                        $"Câu hỏi {index}: Completion question phải có ít nhất 1 đáp án đúng");
+
+                var correctCount = dto.Answers.Count(a => a.IsCorrect);
+                if (correctCount == 0)
+                    throw new ValidationException(
+                        $"Câu hỏi {index}: Phải có ít nhất 1 đáp án đúng " +
+                        $"(IsCorrect=true) để chấm điểm");
+
+                if (dto.Answers.Any(a => string.IsNullOrWhiteSpace(a.Content)))
+                    throw new ValidationException(
+                        $"Câu hỏi {index}: Đáp án không được để trống");
+
+                return;
+            }
+
+            // ── MCQ / Matching / T-F-NG (1-9) ────────────────────
+            if (IsMcqType(type))
             {
                 if (dto.Answers == null || dto.Answers.Count < 2)
                     throw new ValidationException(
                         $"Câu hỏi {index}: Phải có ít nhất 2 đáp án");
 
-                // Chỉ validate cứng số đáp án với TOEIC
-                var partCode = partCategory.Code.Trim().ToUpper();
-                var isToeic = partCode.StartsWith("PART");
-
+                // TOEIC validate cứng số đáp án
                 if (isToeic)
                 {
-                    var expected = GetExpectedAnswerCount(partCode, dto.QuestionType);
+                    var expected = GetExpectedAnswerCount(partCode, type);
                     if (dto.Answers.Count != expected)
                         throw new ValidationException(
-                            $"Câu hỏi {index}: TOEIC {partCategory.Name} phải có đúng {expected} đáp án");
+                            $"Câu hỏi {index}: {partCategory.Name} phải có đúng {expected} đáp án");
                 }
-                // IELTS → không validate cứng số đáp án, chỉ check có đúng 1 đáp án đúng
 
                 var correctCount = dto.Answers.Count(a => a.IsCorrect);
-                if (correctCount != 1)
-                    throw new ValidationException(
-                        $"Câu hỏi {index}: Phải có đúng 1 đáp án đúng (Tìm thấy {correctCount})");
+                if (type == QuestionTypeEnum.MultipleChoice)
+                {
+                    if (correctCount < 2)
+                        throw new ValidationException(
+                            $"Câu hỏi {index}: Multiple Choice phải có ít nhất 2 đáp án đúng");
+                }
+                else
+                {
+                    if (correctCount != 1)
+                        throw new ValidationException(
+                            $"Câu hỏi {index}: Phải có đúng 1 đáp án đúng " +
+                            $"(Tìm thấy {correctCount})");
+                }
 
                 var dupOrders = dto.Answers
                     .GroupBy(a => a.OrderIndex)
@@ -256,9 +283,31 @@ namespace App.Application.Questions.Commands
 
                 if (dupOrders.Any())
                     throw new ValidationException(
-                        $"Câu hỏi {index}: OrderIndex bị trùng: {string.Join(", ", dupOrders)}");
+                        $"Câu hỏi {index}: OrderIndex bị trùng: " +
+                        $"{string.Join(", ", dupOrders)}");
             }
         }
+
+        // ── Type helpers ──────────────────────────────────────────
+        private static bool IsCompletionType(QuestionTypeEnum t) =>
+            t is QuestionTypeEnum.ShortAnswer
+              or QuestionTypeEnum.NoteCompletion
+              or QuestionTypeEnum.FormCompletion
+              or QuestionTypeEnum.TableCompletion
+              or QuestionTypeEnum.SummaryCompletion
+              or QuestionTypeEnum.SentenceCompletion
+              or QuestionTypeEnum.MapLabeling;
+
+        private static bool IsMcqType(QuestionTypeEnum t) =>
+            t is QuestionTypeEnum.SingleChoice
+              or QuestionTypeEnum.MultipleChoice
+              or QuestionTypeEnum.FillBlank
+              or QuestionTypeEnum.Matching
+              or QuestionTypeEnum.MatchingHeading
+              or QuestionTypeEnum.MatchingInformation
+              or QuestionTypeEnum.MatchingSentenceEnds
+              or QuestionTypeEnum.TrueFalseNotGiven
+              or QuestionTypeEnum.YesNoNotGiven;
 
         // Số đáp án theo từng loại Part
         private static int GetExpectedAnswerCount(string partCode, QuestionTypeEnum type) =>
@@ -512,6 +561,7 @@ namespace App.Application.Questions.Commands
                 });
 
             // Questions + Answers + Medias
+            // Questions + Answers + Medias
             var questions = new List<Question>();
             var allAnswers = new List<Answer>();
             var allQMedias = new List<QuestionMedia>();
@@ -519,20 +569,9 @@ namespace App.Application.Questions.Commands
             foreach (var (dto, idx) in request.Questions.Select((q, i) => (q, i + 1)))
             {
                 var questionId = Guid.NewGuid();
-
-                // Xác định QuestionType nếu FE không truyền
-                var questionType = dto.QuestionType;
-                if (questionType == default)
-                {
-                    questionType = code switch
-                    {
-                        var c when AiGradedCodes.Contains(c) && c.StartsWith("IELTS_W")
-                            => QuestionTypeEnum.Writing,
-                        var c when AiGradedCodes.Contains(c) && c.StartsWith("IELTS_SP")
-                            => QuestionTypeEnum.Speaking,
-                        _ => QuestionTypeEnum.SingleChoice,
-                    };
-                }
+                var questionType = dto.QuestionType == default
+                    ? QuestionTypeEnum.SingleChoice
+                    : dto.QuestionType;
 
                 var question = new Question
                 {
@@ -545,7 +584,6 @@ namespace App.Application.Questions.Commands
                     Explanation = dto.Explanation,
                     DefaultScore = dto.DefaultScore,
                     ShuffleAnswers = dto.ShuffleAnswers,
-                    MinWords = dto.MinWords,
                     MaxWords = dto.MaxWords,
                     IsActive = true,
                     OrderIndex = idx,
@@ -554,17 +592,18 @@ namespace App.Application.Questions.Commands
                 };
                 questions.Add(question);
 
-                // Answers — bỏ qua với AI graded
-                if (!isAiGraded && dto.Answers?.Any() == true)
+                if (dto.Answers?.Any() == true)
                 {
-                    allAnswers.AddRange(dto.Answers.Select(a => new Answer
+                    allAnswers.AddRange(dto.Answers.Select((a, aIdx) => new Answer
                     {
                         Id = Guid.NewGuid(),
                         QuestionId = questionId,
-                        Content = a.Content,
+                        Content = a.Content?.Trim() ?? string.Empty,
                         IsCorrect = a.IsCorrect,
                         Feedback = a.Feedback,
-                        OrderIndex = a.OrderIndex,
+                        OrderIndex = a.OrderIndex > 0 ? a.OrderIndex : aIdx + 1,
+                        CreatedAt = now,
+                        UpdatedAt = now,
                     }));
                 }
 
@@ -578,6 +617,8 @@ namespace App.Application.Questions.Commands
                         Url = m.Url,
                         MediaType = m.MediaType,
                         OrderIndex = m.OrderIndex,
+                        CreatedAt = now,
+                        UpdatedAt = now,
                     }));
                 }
             }

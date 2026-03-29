@@ -4,6 +4,7 @@ using App.Application.Questions.Commands;
 using App.Application.Questions.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 
 
@@ -212,16 +213,18 @@ namespace App.Api.Controllers
         }
 
         /// OCR QUESTION MODULE 
-        /// POST /api/exam-digitize/extract
+        /// POST /api/questions/extract
         /// Upload ảnh → Gemini extract → trả JSON preview
         [HttpPost("extract")]
         public async Task<IActionResult> Extract(
-    [FromForm] List<IFormFile> files,
-    [FromForm] string examType = "IELTS_READING")
+            [FromForm] List<IFormFile> files,
+            [FromForm] string examType = "IELTS_READING",
+            [FromForm] string? passageOnly = null,   // nhận string vì FormData gửi "true"/"false"
+            [FromForm] string? questionsOnly = null,
+            [FromForm] string? passageContent = null)
         {
             if (files == null || !files.Any())
                 return BadRequest(new { message = "Vui lòng upload ít nhất 1 ảnh" });
-
             if (files.Count > 10)
                 return BadRequest(new { message = "Tối đa 10 ảnh mỗi lần" });
 
@@ -229,18 +232,90 @@ namespace App.Api.Controllers
             {
                 Files = files,
                 ExamType = examType,
+                PassageOnly = passageOnly == "true",  // parse thủ công
+                QuestionsOnly = questionsOnly == "true",
+                PassageContent = passageContent,
             });
 
             return Ok(new { success = true, data = result });
         }
 
-        /// POST /api/exam-digitize/save
+        // ── Request model cho [FromForm] ──────────────────────────
+        public class SaveDigitizedExamRequest
+        {
+            [Required] public Guid CategoryId { get; set; }
+            public Guid? DifficultyId { get; set; }
+
+            // Files
+            public IFormFile? AudioFile { get; set; }
+            public IFormFile? ImageFile { get; set; }
+
+            // URL fallback
+            public string? AudioUrl { get; set; }
+            public string? ImageUrl { get; set; }
+
+            // ExtractedData dưới dạng JSON string (vì FormData không support nested object)
+            [Required]
+            [FromForm(Name = "extractedData")]
+            public string? ExtractedDataJson { get; set; }
+
+            public List<string>? Tags { get; set; }
+        }
+
+        /// POST /api/questions/save-extract
         /// Admin confirm → lưu vào DB
         [HttpPost("save-extract")]
-        public async Task<IActionResult> Save([FromBody] SaveDigitizedExamCommand command)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> SaveExtract(
+        [FromForm] SaveDigitizedExamRequest request,
+        CancellationToken ct)
         {
-            var groupId = await _mediator.Send(command);
+            // Deserialize ExtractedData từ JSON string
+            if (string.IsNullOrWhiteSpace(request.ExtractedDataJson))
+                return BadRequest("extractedData is required");
+
+            ExtractedExamDto extractedData;
+            try
+            {
+                extractedData = JsonSerializer.Deserialize<ExtractedExamDto>(
+                    request.ExtractedDataJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+                ) ?? throw new Exception("null");
+            }
+            catch
+            {
+                return BadRequest("extractedData JSON is invalid");
+            }
+
+            var command = new SaveDigitizedExamCommand
+            {
+                CategoryId = request.CategoryId,
+                DifficultyId = request.DifficultyId,
+                AudioFile = request.AudioFile,   // IFormFile
+                ImageFile = request.ImageFile,   // IFormFile
+                AudioUrl = request.AudioUrl,    // string fallback
+                ImageUrl = request.ImageUrl,    // string fallback
+                Tags = request.Tags ?? [],
+                ExtractedData = extractedData,
+            };
+
+            var groupId = await _mediator.Send(command, ct);
             return Ok(new { success = true, data = new { groupId } });
+        }
+
+
+        /// POST /api/questions/export
+        /// Thực hiện xuất toàn bộ bank question ra excel 
+        [HttpGet("export-excel")]
+        public async Task<IActionResult> ExportExcel([FromQuery] ExportQuestionsQuery query)
+        {
+            var file = await _mediator.Send(query);
+
+            return File(
+                file.Content,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                file.FileName
+            );
         }
     }
 }

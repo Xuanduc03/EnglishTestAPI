@@ -154,7 +154,7 @@ namespace App.Application.DTOs
     }
 
     // ==================== DTO trạng thái của practice đang làm ====================
-  
+
     public class InProgressPracticeDto
     {
         public Guid AttemptId { get; set; }
@@ -167,24 +167,41 @@ namespace App.Application.DTOs
         public int? ActualTimeSeconds { get; set; }
     }
 
-    // pratice review dto
+    // ==================== PRACTICE REVIEW ====================
     public class PracticeReviewDto
     {
         public Guid SessionId { get; set; }
         public string Title { get; set; }
-        public List<PracticeReviewQuestionDto> Questions { get; set; }
+        public List<PracticeReviewQuestionDto> Questions { get; set; } = new();
     }
 
     public class PracticeReviewQuestionDto
     {
         public Guid QuestionId { get; set; }
         public string Content { get; set; }
+        public List<PracticeMediaDto> Media { get; set; } = new();
         public int OrderIndex { get; set; }
         public Guid? SelectedAnswerId { get; set; }
         public Guid? CorrectAnswerId { get; set; }
         public bool IsCorrect { get; set; }
         public string Explanation { get; set; }
-        public List<PracticeReviewAnswerDto> Answers { get; set; } // các đáp án
+        public List<PracticeReviewAnswerDto> Answers { get; set; } = new();
+
+        // === Thông tin nhóm (group) ===
+        public Guid? GroupId { get; set; }
+        public string? GroupContent { get; set; }
+        public int? TotalQuestionsInGroup { get; set; }
+        public int? QuestionIndexInGroup { get; set; }
+        public List<PracticeMediaDto>? GroupMedia { get; set; }
+
+        // === Hỗ trợ audio/image trực tiếp cho câu hỏi ===
+        public bool HasAudio { get; set; }
+        public bool HasImage { get; set; }
+        public string? AudioUrl { get; set; }
+        public string? ImageUrl { get; set; }
+
+        // === Hỗ trợ multiple passages (Part 7) ===
+        public List<GroupPassageDto>? Passages { get; set; }
     }
 
     public class PracticeReviewAnswerDto

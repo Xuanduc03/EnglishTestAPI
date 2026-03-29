@@ -184,17 +184,6 @@ namespace App.Application.Questions.Commands
                 }
             }
 
-            //  Writing cần có content
-            if (request.QuestionType == QuestionTypeEnum.Writing
-                && string.IsNullOrWhiteSpace(request.Content))
-                throw new ValidationException("Writing question phải có nội dung đề bài");
-
-            //  Speaking cần có audio prompt (tuỳ chọn) hoặc content
-            if (request.QuestionType == QuestionTypeEnum.Speaking
-                && string.IsNullOrWhiteSpace(request.Content)
-                && request.AudioFile == null
-                && string.IsNullOrWhiteSpace(request.AudioUrl))
-                throw new ValidationException("Speaking question phải có nội dung hoặc audio prompt");
 
 
             return category;
@@ -205,9 +194,7 @@ namespace App.Application.Questions.Commands
         #region -> 2check duplicate flow questions content and answer
         private async Task CheckDuplicatesAsync(CreateSingleQuestionCommand request, Category category, CancellationToken cancellation)
         {
-            if (request.QuestionType == QuestionTypeEnum.Writing
-                 || request.QuestionType == QuestionTypeEnum.Speaking)
-                return;
+
             var errors = new List<string>();
 
             //1 check content duplicate 

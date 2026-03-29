@@ -24,6 +24,11 @@ namespace App.Application.Interfaces
                 List<(string Base64, string MimeType)> images,
                 string examType,
                 CancellationToken cancellationToken = default);
-        
+
+        Task<string> ExtractQuestionsWithPassageAsync(
+            List<(string Base64, string MimeType)> questionImages,
+            string passageContent,
+            string examType,
+            CancellationToken cancellationToken = default);
     }
 }

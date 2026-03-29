@@ -6,7 +6,7 @@ using App.Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
-namespace App.Api.Controllers
+namespace App.Api.Controllers.ExamAttempts
 {
     /// <summary>
     /// API 
@@ -30,9 +30,9 @@ namespace App.Api.Controllers
         /// <param name="command"></param>
         /// <returns></returns>
         [HttpPost("start")]
-        public async Task<IActionResult> StartExamAttempts([FromBody]StartExamCommand command)
+        public async Task<IActionResult> StartExamAttempts([FromBody] StartExamCommand command)
         {
-            command.UserId = _currentUserService.UserId ?? throw new UnauthorizedAccessException("User not found"); 
+            command.UserId = _currentUserService.UserId ?? throw new UnauthorizedAccessException("User not found");
             var result = await _mediator.Send(command);
             return Ok(new { success = true, data = result });
         }

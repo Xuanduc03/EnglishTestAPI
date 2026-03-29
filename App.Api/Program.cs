@@ -16,7 +16,6 @@ using App.Application.Services;
 using App.Application.Validators;
 using App.Application.ExamAttempts.Commands;
 using Microsoft.AspNetCore.Http.Features;
-using App.Application.Practices.Jobs;
 using Hangfire;
 using Hangfire.MySql;
 using App.Api.Filters;
@@ -52,12 +51,6 @@ builder.Services.AddHttpClient("OpenAI", client =>
     client.BaseAddress = new Uri("https://api.openai.com");
     client.Timeout = TimeSpan.FromSeconds(120); // AI có thể chậm
 });
-
-// 3. Register services
-builder.Services.AddScoped<IAIGradingService, OpenAIGradingService>();
-builder.Services.AddScoped<PracticeAIGradingJob>();
-
-
 
 
 builder.Services.Configure<CloudinaryOptions>(
@@ -177,7 +170,13 @@ builder.Services.AddScoped<IExcelZipParser, ExcelZipParserService>();
 builder.Services.AddScoped<IExcelZipImportService, ExcelZipImportService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
-builder.Services.AddHttpClient<IGeminiService, GeminiService>();
+builder.Services.AddScoped<IExcelService, ExcelService>();
+builder.Services.AddHttpClient<IGeminiService, GeminiService>(client =>
+{
+    client.Timeout = TimeSpan.FromMinutes(5); 
+});
+builder.Services.AddScoped<IOcrService, TesseractOcrService>();
+
 
 
 builder.Services.AddAuthorization();
@@ -208,5 +207,4 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 
 app.UseStaticFiles();
 app.MapControllers();
-app.MapGet("/ping", () => "pong");
 app.Run();

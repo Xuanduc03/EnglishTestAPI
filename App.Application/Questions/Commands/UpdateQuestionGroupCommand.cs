@@ -190,9 +190,9 @@ namespace App.Application.Questions.Commands
                 throw new ValidationException($"Câu hỏi {index}: Nội dung không được để trống");
 
             // Check answer count
-            if (dto.Answers.Count != TOEIC_ANSWER)
-                throw new ValidationException(
-                    $"Câu hỏi {index}: Phải có đúng {TOEIC_ANSWER} đáp án (chuẩn TOEIC)");
+            //if (dto.Answers.Count != TOEIC_ANSWER)
+            //    throw new ValidationException(
+            //        $"Câu hỏi {index}: Phải có đúng {TOEIC_ANSWER} đáp án (chuẩn TOEIC)");
 
             // Check correct answer count
             var correctCount = dto.Answers.Count(a => a.IsCorrect);

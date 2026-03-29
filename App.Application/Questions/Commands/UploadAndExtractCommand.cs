@@ -9,10 +9,13 @@ namespace App.Application.ExamDigitize.Commands
     public record UploadAndExtractCommand : IRequest<ExtractedExamDto>
     {
         public List<IFormFile> Files { get; init; } = [];
-        public string ExamType { get; init; } = "IELTS_READING";
+        public string ExamType { get; init; } = "TOEIC_READING";
+        public bool PassageOnly { get; init; } = false;
+        public bool QuestionsOnly { get; init; } = false;
+        public string? PassageContent { get; init; }
     }
 
-    // ── Result DTOs ───────────────────────────────────────────────
+    // ── DTOs ──────────────────────────────────────────────────────
     public class ExtractedExamDto
     {
         public string ExamType { get; set; } = string.Empty;
@@ -32,6 +35,9 @@ namespace App.Application.ExamDigitize.Commands
         public bool IsAiGraded { get; set; } = false;
         public string? SampleAnswer { get; set; }
         public int? MaxWords { get; set; }
+        public string? Explanation { get; set; }
+        public string? AudioUrl { get; set; }
+        public string? ImageUrl { get; set; }
         public List<ExtractedAnswerDto> Answers { get; set; } = [];
     }
 
@@ -47,50 +53,79 @@ namespace App.Application.ExamDigitize.Commands
         : IRequestHandler<UploadAndExtractCommand, ExtractedExamDto>
     {
         private readonly IGeminiService _gemini;
+        private readonly IOcrService _ocr;
 
-        public UploadAndExtractCommandHandler(IGeminiService gemini)
+        public UploadAndExtractCommandHandler(IGeminiService gemini, IOcrService ocr)
         {
             _gemini = gemini;
+            _ocr = ocr;
         }
 
         public async Task<ExtractedExamDto> Handle(
-      UploadAndExtractCommand request,
-      CancellationToken cancellationToken)
+            UploadAndExtractCommand request,
+            CancellationToken cancellationToken)
         {
-            if (!request.Files.Any())
-                throw new ArgumentException("Chưa có file ảnh nào");
-
-            // Chuyển tất cả file → base64
+            // FIX 2: đọc bytes 1 lần duy nhất — dùng lại cho cả OCR và Gemini
+            var imageBytes = new List<byte[]>();
             var imageDataList = new List<(string Base64, string MimeType)>();
+
             foreach (var file in request.Files)
             {
                 using var ms = new MemoryStream();
                 await file.CopyToAsync(ms, cancellationToken);
-                imageDataList.Add((
-                    Convert.ToBase64String(ms.ToArray()),
-                    file.ContentType
-                ));
+                var bytes = ms.ToArray();
+                imageBytes.Add(bytes);
+                imageDataList.Add((Convert.ToBase64String(bytes), file.ContentType));
             }
 
+            // ── PassageOnly: dùng Tesseract OCR 
+            if (request.PassageOnly)
+            {
+                var passageText = await _ocr.ExtractTextMultipleAsync(imageBytes, cancellationToken);
+
+                return new ExtractedExamDto
+                {
+                    ExamType = request.ExamType,
+                    PassageTitle = ExtractTitle(passageText),
+                    PassageContent = passageText,
+                    Questions = [],
+                };
+            }
+
+            // ── QuestionsOnly với passage context ─────────────────
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             string rawJson;
 
-            if (imageDataList.Count == 1)
+            if (request.QuestionsOnly && !string.IsNullOrWhiteSpace(request.PassageContent))
             {
-                // 1 ảnh → gọi method đơn
-                rawJson = await _gemini.ExtractExamAsync(
-                    imageDataList[0].Base64,
-                    imageDataList[0].MimeType,
+                rawJson = await _gemini.ExtractQuestionsWithPassageAsync(
+                    imageDataList,
+                    request.PassageContent,
                     request.ExamType,
                     cancellationToken);
             }
+            // ── Single image ──────────────────────────────────────
+            else if (imageDataList.Count == 1)
+            {
+                var examTypeKey = request.QuestionsOnly
+                    ? request.ExamType + "_QUESTIONS_ONLY"
+                    : request.ExamType;
+
+                rawJson = await _gemini.ExtractExamAsync(
+                    imageDataList[0].Base64,
+                    imageDataList[0].MimeType,
+                    examTypeKey,
+                    cancellationToken);
+            }
+            // ── Multiple images ───────────────────────────────────
             else
             {
-                // Nhiều ảnh → gửi tất cả trong 1 request để AI merge
+                var examTypeKey = request.QuestionsOnly
+                    ? request.ExamType + "_QUESTIONS_ONLY"
+                    : request.ExamType;
+
                 rawJson = await _gemini.ExtractExamMultipleAsync(
-                    imageDataList,
-                    request.ExamType,
-                    cancellationToken);
+                    imageDataList, examTypeKey, cancellationToken);
             }
 
             var result = JsonSerializer.Deserialize<ExtractedExamDto>(rawJson, options)
@@ -100,52 +135,20 @@ namespace App.Application.ExamDigitize.Commands
             return result;
         }
 
-        // ── Merge nhiều kết quả từ nhiều ảnh ─────────────────────
-        private static ExtractedExamDto MergeResults(
-            List<ExtractedExamDto> dtos,
-            string examType)
+        // ── ExtractTitle: lấy dòng đầu làm title ─────────────────
+        public static string? ExtractTitle(string text)
         {
-            if (dtos.Count == 0)
-                throw new InvalidOperationException("Không có kết quả nào từ AI");
+            if (string.IsNullOrWhiteSpace(text)) return null;
 
-            if (dtos.Count == 1) return dtos[0];
+            var firstLine = text
+                .Split('\n')
+                .Select(l => l.Trim())
+                .FirstOrDefault(l => l.Length > 3);
 
-            // Ảnh đầu tiên thường chứa passage/header
-            var first = dtos[0];
+            if (firstLine == null) return null;
 
-            var merged = new ExtractedExamDto
-            {
-                ExamType = examType,
-                PassageTitle = first.PassageTitle,
-                SectionTitle = first.SectionTitle,
-                Instructions = first.Instructions,
-                PartNumber = first.PartNumber,
-
-                // Merge passage: nối các đoạn văn từ các ảnh
-                PassageContent = string.Join("\n\n", dtos
-                    .Where(d => !string.IsNullOrWhiteSpace(d.PassageContent))
-                    .Select(d => d.PassageContent)),
-
-                // Merge questions: gom tất cả câu hỏi, re-index orderIndex
-                Questions = dtos
-                    .SelectMany(d => d.Questions)
-                    .OrderBy(q => q.OrderIndex)
-                    .Select((q, idx) => new ExtractedQuestionDto
-                    {
-                        OrderIndex = idx + 1,       // re-index 1, 2, 3...
-                        QuestionText = q.QuestionText,
-                        QuestionType = q.QuestionType,
-                        IsAiGraded = q.IsAiGraded,
-                        SampleAnswer = q.SampleAnswer,
-                        MaxWords = q.MaxWords,
-                        Answers = q.Answers
-                            .OrderBy(a => a.OrderIndex)
-                            .ToList(),
-                    })
-                    .ToList(),
-            };
-
-            return merged;
+            // Title thường là ALL CAPS
+            return firstLine == firstLine.ToUpper() ? firstLine : null;
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using App.Application.DTOs;
 using App.Application.Interfaces;
+using App.Application.Leaderboards.Commands;
 using App.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -7,55 +8,47 @@ using System.ComponentModel.DataAnnotations;
 
 namespace App.Application.ExamAttempts.Commands
 {
-    /// <summary>
-    /// Command: Nộp bài + chấm điểm
-    /// POST /api/exam-attempts/{attemptId}/submit
-    /// </summary>
     public class SubmitExamCommand : IRequest<SubmitExamResult>
     {
         [Required]
         public Guid AttemptId { get; set; }
-
         public Guid UserId { get; set; }
-
         public bool IsAutoSubmit { get; set; } = false;
     }
 
     public class SubmitExamCommandHandler : IRequestHandler<SubmitExamCommand, SubmitExamResult>
     {
         private readonly IAppDbContext _context;
+        private readonly IMediator _mediator;
 
-        // FIX: bỏ ICurrentUserService, dùng UserId từ command
-        public SubmitExamCommandHandler(IAppDbContext context)
+        public SubmitExamCommandHandler(IAppDbContext context, IMediator mediator)
         {
             _context = context;
+            _mediator = mediator;
         }
 
         public async Task<SubmitExamResult> Handle(
             SubmitExamCommand request,
             CancellationToken cancellationToken)
         {
-            // 1. Load attempt
+            // ── 1. Load attempt ───────────────────────────────────────────────────────
             var attempt = await _context.ExamAttempts
                 .FirstOrDefaultAsync(a => a.Id == request.AttemptId, cancellationToken)
                 ?? throw new KeyNotFoundException($"Phiên thi {request.AttemptId} không tìm thấy");
 
-            // 2. Auth check
+            // ── 2. Auth check ─────────────────────────────────────────────────────────
             if (!request.IsAutoSubmit && attempt.UserId != request.UserId)
                 throw new UnauthorizedAccessException("Không thể nộp bài của người dùng khác");
 
-            // 3. Validate
+            // ── 3. Validate trạng thái ────────────────────────────────────────────────
             if (attempt.Status == ExamAttemptStatus.Submitted)
                 throw new InvalidOperationException("Bài thi đã được nộp rồi");
-
             if (attempt.Status == ExamAttemptStatus.Abandoned)
                 throw new InvalidOperationException("Bài thi đã bị hủy");
-
-            // FIX: dùng DateTime.UtcNow nhất quán, không dùng DateTime.Now
             if (!request.IsAutoSubmit && attempt.ExpiresAt.HasValue && attempt.ExpiresAt < DateTime.UtcNow)
                 throw new InvalidOperationException("Thời gian làm bài đã hết");
 
-            // 4. Load ExamAnswers + đáp án đúng
+            // ── 4. Load ExamAnswers ───────────────────────────────────────────────────
             var examAnswers = await _context.ExamAnswers
                 .Where(a => a.ExamAttemptId == request.AttemptId)
                 .Include(a => a.ExamQuestions)
@@ -69,19 +62,53 @@ namespace App.Application.ExamAttempts.Commands
             if (!examAnswers.Any())
                 throw new InvalidOperationException("Không tìm thấy câu hỏi trong bài thi");
 
-            // 5. Load ScoreTable (Listening + Reading) — dùng chung toàn hệ thống
+            // ── 5. Load ScoreTable ────────────────────────────────────────────────────
             var scoreTables = await _context.ScoreTables
                 .Where(st => st.IsActive && !st.IsDeleted)
                 .Include(st => st.Entries)
                 .ToListAsync(cancellationToken);
+
+            // SkillCategoryId → ScoreTable
+            var scoreTableBySkillId = scoreTables
+                .ToDictionary(st => st.SkillCategoryId);
+
+            // ── 6. Load Skill Categories để lấy Code ─────────────────────────────────
+            var skillIds = scoreTables.Select(st => st.SkillCategoryId).ToHashSet();
+            var skillCategoryById = await _context.Categories
+                .Where(c => skillIds.Contains(c.Id))
+                .ToDictionaryAsync(c => c.Id, cancellationToken);
+
+            // ── 7. Query SectionId → SkillId thẳng từ DB ─────────────────────────────
+            //
+            // ExamSection.CategoryId → Categories(Part).ParentId = SkillId
+            // Không dùng navigation property (có thể null do EF lazy load)
+            //
+            var sectionIds = examAnswers
+                .Select(a => a.ExamQuestions.ExamSectionId)
+                .Distinct()
+                .ToList();
+
+            var sectionToSkillId = await _context.ExamSections
+                .Where(es => sectionIds.Contains(es.Id))
+                .Join(
+                    _context.Categories,
+                    es => es.CategoryId,
+                    part => part.Id,
+                    (es, part) => new { SectionId = es.Id, SkillId = part.ParentId }
+                )
+                .Where(x => x.SkillId != null)
+                .ToDictionaryAsync(
+                    x => x.SectionId,
+                    x => x.SkillId!.Value,
+                    cancellationToken
+                );
 
             var now = DateTime.UtcNow;
 
             using var transaction = await _context.BeginTransactionAsync(cancellationToken);
             try
             {
-
-                // 6. Chấm điểm từng câu
+                // ── 8. Chấm điểm từng câu ────────────────────────────────────────────
                 foreach (var ea in examAnswers)
                 {
                     var correctAnswer = ea.ExamQuestions?.Question?.Answers
@@ -89,13 +116,13 @@ namespace App.Application.ExamAttempts.Commands
 
                     ea.CorrectAnswerId = correctAnswer?.Id;
                     ea.IsCorrect = ea.IsAnswered
-                                && ea.SelectedAnswerId.HasValue
-                                && ea.SelectedAnswerId == correctAnswer?.Id;
+                                 && ea.SelectedAnswerId.HasValue
+                                 && ea.SelectedAnswerId == correctAnswer?.Id;
                     ea.Point = ea.IsCorrect ? (double)ea.ExamQuestions.Point : 0;
                     ea.UpdatedAt = now;
                 }
 
-                // 7. Group theo Section (Part) để tính SectionResult
+                // ── 9. Group theo Section (Part) ──────────────────────────────────────
                 var sectionGroups = examAnswers
                     .GroupBy(a => new
                     {
@@ -104,73 +131,72 @@ namespace App.Application.ExamAttempts.Commands
                     })
                     .ToList();
 
-                // 8. Group theo Skill (Parent của Part) để tính điểm TOEIC
-                var skillGroups = examAnswers
-                    .GroupBy(a => a.ExamQuestions.ExamSection?.Category?.Parent)
-                    .Where(g => g.Key != null)
-                    .ToList();
-
-                // 9. Tính điểm Listening và Reading từ ScoreTable
+                // ── 10. Group theo Skill → tính điểm quy đổi ─────────────────────────
                 int listeningCorrect = 0, listeningScore = 0;
                 int readingCorrect = 0, readingScore = 0;
 
-                var sectionConvertedScores = new Dictionary<Guid, int>();
+                // SkillId → converted score
+                var skillConvertedScore = new Dictionary<Guid, int>();
+
+                // Dùng sectionToSkillId (query từ DB) — không dùng navigation property
+                var skillGroups = examAnswers
+                    .Where(a => sectionToSkillId.ContainsKey(a.ExamQuestions.ExamSectionId))
+                    .GroupBy(a => sectionToSkillId[a.ExamQuestions.ExamSectionId])
+                    .ToList();
 
                 foreach (var skillGroup in skillGroups)
                 {
-                    var skill = skillGroup.Key;
+                    var skillId = skillGroup.Key;
                     var correctCount = skillGroup.Count(a => a.IsCorrect);
 
-                    // Lookup ScoreTable theo SkillCategoryId
-                    var scoreTable = scoreTables
-                        .FirstOrDefault(st => st.SkillCategoryId == skill.Id);
+                    if (!scoreTableBySkillId.TryGetValue(skillId, out var scoreTable))
+                        continue;
 
-                    var converted = scoreTable?.Entries
+                    var converted = scoreTable.Entries
                         .FirstOrDefault(e => e.CorrectAnswers == correctCount)
-                        ?.Score ?? 0;
+                        ?.Score ?? scoreTable.MinScore;
 
-                    if (skill.Code == "LISTENING")
+                    skillConvertedScore[skillId] = converted;
+
+                    if (!skillCategoryById.TryGetValue(skillId, out var skillCategory))
+                        continue;
+
+                    if (skillCategory.Code == "TOEIC_LISTENING")
                     {
                         listeningCorrect = correctCount;
                         listeningScore = converted;
                     }
-                    else if (skill.Code == "READING")
+                    else if (skillCategory.Code == "TOEIC_READING")
                     {
                         readingCorrect = correctCount;
                         readingScore = converted;
                     }
-
-                    // Lưu ConvertedScore cho từng Section thuộc Skill này
-                    // (chia đều converted score theo tỉ lệ câu đúng từng Part)
-                    foreach (var sectionGroup in sectionGroups)
-                    {
-                        // Kiểm tra section này có thuộc skill hiện tại không
-                        var sectionSkillId = examAnswers
-                            .FirstOrDefault(a => a.ExamQuestions.ExamSectionId == sectionGroup.Key.SectionId)
-                            ?.ExamQuestions?.ExamSection?.Category?.ParentId;
-
-                        if (sectionSkillId == skill.Id)
-                        {
-                            sectionConvertedScores[sectionGroup.Key.SectionId] = converted;
-                        }
-                    }
                 }
 
-                // 10. Tạo SectionResult cho từng Part
-                var sectionResults = sectionGroups.Select(g => new ExamSectionResult
+                // ── 11. Tạo SectionResult ─────────────────────────────────────────────
+                var sectionResults = sectionGroups.Select(g =>
                 {
-                    Id = Guid.NewGuid(),
-                    ExamAttemptId = attempt.Id,
-                    ExamSectionId = g.Key.SectionId,
-                    TotalQuestions = g.Count(),
-                    CorrectAnswers = g.Count(a => a.IsCorrect),
-                    // ConvertedScore là điểm của Skill chứa Section này
-                    ConvertedScore = sectionConvertedScores.TryGetValue(g.Key.SectionId, out var cs) ? cs : null,
-                    CreatedAt = now,
-                    UpdatedAt = now,
+                    var skillId = sectionToSkillId.TryGetValue(g.Key.SectionId, out var sid)
+                        ? sid : (Guid?)null;
+
+                    var convertedScore = skillId.HasValue
+                        && skillConvertedScore.TryGetValue(skillId.Value, out var cs)
+                        ? cs : (int?)null;
+
+                    return new ExamSectionResult
+                    {
+                        Id = Guid.NewGuid(),
+                        ExamAttemptId = attempt.Id,
+                        ExamSectionId = g.Key.SectionId,
+                        TotalQuestions = g.Count(),
+                        CorrectAnswers = g.Count(a => a.IsCorrect),
+                        ConvertedScore = convertedScore,
+                        CreatedAt = now,
+                        UpdatedAt = now,
+                    };
                 }).ToList();
 
-                // 11. PartSummaries để trả về response
+                // ── 12. PartSummaries ─────────────────────────────────────────────────
                 var partSummaries = sectionGroups.Select(g => new PartSummary
                 {
                     PartName = g.Key.SectionName,
@@ -179,14 +205,14 @@ namespace App.Application.ExamAttempts.Commands
                     Score = Math.Round(g.Sum(a => a.Point), 2),
                 }).ToList();
 
-                // 12. Tính tổng
+                // ── 13. Tổng hợp ──────────────────────────────────────────────────────
                 var totalScore = listeningScore + readingScore;
                 var correctTotal = examAnswers.Count(a => a.IsCorrect);
                 var skippedCount = examAnswers.Count(a => !a.IsAnswered);
                 var wrongCount = examAnswers.Count(a => a.IsAnswered && !a.IsCorrect);
                 var maxScore = examAnswers.Sum(a => (double)a.ExamQuestions.Point);
 
-                // 13. Update attempt với đầy đủ thông tin skill
+                // ── 14. Cập nhật Attempt ──────────────────────────────────────────────
                 attempt.Status = ExamAttemptStatus.Submitted;
                 attempt.SubmitedAt = now;
                 attempt.ActualTimeSeconds = (int)(now - attempt.StartedAt).TotalSeconds;
@@ -204,6 +230,13 @@ namespace App.Application.ExamAttempts.Commands
                 await _context.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 
+                // ── 15. Cập nhật điểm & streak ───────────────────────────────────────
+                await _mediator.Send(new UpdatePointsAndStreakCommand(
+                    UserId: attempt.UserId,
+                    PointsEarned: 5,
+                    ActivityDate: DateTime.UtcNow
+                ), cancellationToken);
+
                 return new SubmitExamResult
                 {
                     AttemptId = attempt.Id,
@@ -216,7 +249,6 @@ namespace App.Application.ExamAttempts.Commands
                     WrongAnswers = wrongCount,
                     SkippedAnswers = skippedCount,
                     DurationSeconds = (int)(now - attempt.StartedAt).TotalSeconds,
-                    // Thêm thông tin skill vào response
                     ListeningCorrect = listeningCorrect,
                     ListeningScore = listeningScore,
                     ReadingCorrect = readingCorrect,

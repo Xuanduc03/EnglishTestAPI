@@ -4,11 +4,7 @@ using App.Application.Services.Interface;
 using App.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace App.Application.ExamAttempts.Queries
 {
@@ -65,6 +61,10 @@ namespace App.Application.ExamAttempts.Queries
                 .Include(a => a.ExamQuestions)
                     .ThenInclude(eq => eq.Question)
                         .ThenInclude(q => q.Media)
+                 .Include(a => a.ExamQuestions)
+                    .ThenInclude(eq => eq.Question)
+                        .ThenInclude(q => q.Group)
+                            .ThenInclude(g => g.Media)
                 .OrderBy(a => a.ExamQuestions.ExamSection.OrderIndex)
                     .ThenBy(a => a.ExamQuestions.OrderIndex)
                 .ToListAsync(cancellationToken);
@@ -78,50 +78,73 @@ namespace App.Application.ExamAttempts.Queries
                     OrderIndex = a.ExamQuestions.ExamSection?.OrderIndex ?? 0,
                 })
                 .OrderBy(g => g.Key.OrderIndex)
-                .Select(g => new ExamReviewSectionDto
-                {
-                    SectionId = g.Key.SectionId,
-                    SectionName = g.Key.SectionName,
-                    OrderIndex = g.Key.OrderIndex,
-                    Questions = g.Select(a => new ExamReviewQuestionDto
-                    {
-                        ExamAnswerId = a.Id,
-                        QuestionId = a.QuestionId,
-                        OrderIndex = a.ExamQuestions.OrderIndex,
-                        Point = (double)a.ExamQuestions.Point,
-                        Content = a.ExamQuestions.Question?.Content ?? "",
-                        QuestionType = a.ExamQuestions.Question?.QuestionType.ToString() ?? "",
-                        Explanation = a.ExamQuestions.Question?.Explanation,
-                        AudioUrl = a.ExamQuestions.Question?.Media?
-                            .FirstOrDefault(m => m.MediaType == "audio")?.Url,
-                        ImageUrl = a.ExamQuestions.Question?.Media?
-                            .FirstOrDefault(m => m.MediaType == "image")?.Url,
+               .Select(secGrp => new ExamReviewSectionDto
+               {
+                   SectionId = secGrp.Key.SectionId,
+                   SectionName = secGrp.Key.SectionName,
+                   OrderIndex = secGrp.Key.OrderIndex,
 
-                        // Trắc nghiệm
-                        SelectedAnswerId = a.SelectedAnswerId,
-                        CorrectAnswerId = a.CorrectAnswerId,
-                        IsCorrect = a.IsCorrect,
-                        IsAnswered = a.IsAnswered,
-                        Answers = a.ExamQuestions.Question?.Answers
-                            .OrderBy(ans => ans.OrderIndex)
-                            .Select(ans => new ExamReviewAnswerDto
-                            {
-                                Id = ans.Id,
-                                Content = ans.Content ?? "",
-                                IsCorrect = ans.IsCorrect,
-                                OrderIndex = ans.OrderIndex,
-                            }).ToList() ?? new(),
+                   Groups = secGrp
+                        .GroupBy(a => a.ExamQuestions.Question?.GroupId ?? a.ExamQuestions.QuestionId)
+                      .Select(qGrp =>
+                      {
+                          var firstQ = qGrp.First().ExamQuestions.Question;
+                          var group = firstQ?.Group;
 
-                        // Writing/Speaking
-                        TextAnswer = a.TextAnswer,
-                        AiFeedback = a.AiFeedback,
-                        AiScoreDetailJson = a.AiScoreDetailJson,
-                        IsAiGraded = a.IsAiGraded,
-                        GradingStatus = a.GradingStatus.ToString(),
-                    })
-                    .OrderBy(q => q.OrderIndex)
-                    .ToList()
-                })
+                          // Kiểm tra xem đây là Group THẬT hay GIẢ
+                          bool isRealGroup = group != null;
+
+                          // LOGIC FALLBACK: Nếu không có Group thật, lấy Media từ chính Question đầu tiên
+                          var audioUrl = isRealGroup
+                              ? group?.Media?.FirstOrDefault(m => m.MediaType == "audio")?.Url
+                              : firstQ?.Media?.FirstOrDefault(m => m.MediaType == "audio")?.Url;
+
+                          var imageUrl = isRealGroup
+                              ? group?.Media?.FirstOrDefault(m => m.MediaType == "image")?.Url
+                              : firstQ?.Media?.FirstOrDefault(m => m.MediaType == "image")?.Url;
+
+                          return new ExamReviewGroupDto
+                          {
+                              GroupId = group?.Id ?? firstQ!.Id,
+                              PassageHtml = group?.Content,   // Part 6,7 mới có
+                              Transcript = group?.Transcript, // Listening Part 3,4
+                              AudioUrl = audioUrl,            // Lấy Audio đã fallback
+                              ImageUrl = imageUrl,            // Lấy Image đã fallback
+
+                              Questions = qGrp.Select(a => new ExamReviewQuestionDto
+                              {
+                                  ExamAnswerId = a.Id,
+                                  QuestionId = a.QuestionId,
+                                  OrderIndex = a.ExamQuestions.OrderIndex,
+                                  Point = (double)a.ExamQuestions.Point,
+                                  Content = a.ExamQuestions.Question?.Content ?? "",
+                                  QuestionType = a.ExamQuestions.Question?.QuestionType.ToString() ?? "",
+                                  Explanation = a.ExamQuestions.Question?.Explanation,
+
+                                  // LƯU Ý: Không cần truyền Audio/Image ở tầng Question nữa nếu đã đẩy lên Group
+                                  AudioUrl = a.ExamQuestions.Question?.Media?.FirstOrDefault(m => m.MediaType == "audio")?.Url,
+                                  ImageUrl = a.ExamQuestions.Question?.Media?.FirstOrDefault(m => m.MediaType == "image")?.Url,
+
+                                  // Trắc nghiệm
+                                  SelectedAnswerId = a.SelectedAnswerId,
+                                  CorrectAnswerId = a.CorrectAnswerId,
+                                  IsCorrect = a.IsCorrect,
+                                  IsAnswered = a.IsAnswered,
+                                  Answers = a.ExamQuestions.Question?.Answers
+                                      .OrderBy(ans => ans.OrderIndex)
+                                      .Select(ans => new ExamReviewAnswerDto
+                                      {
+                                          Id = ans.Id,  
+                                          Content = ans.Content ?? "",
+                                          IsCorrect = ans.IsCorrect,
+                                          OrderIndex = ans.OrderIndex,
+                                      }).ToList() ?? new()
+                              })
+                              .OrderBy(q => q.OrderIndex)
+                              .ToList()
+                          };
+                      }).ToList()
+               })
                 .ToList();
 
             return new ExamReviewDto

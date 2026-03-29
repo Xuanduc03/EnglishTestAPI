@@ -36,6 +36,15 @@ namespace App.Api.Controllers
             });
         }
 
+
+        [HttpGet("home")]
+        [AllowAnonymous] 
+        public async Task<IActionResult> GetHomeExams([FromQuery] GetHomeExamsQuery query)
+        {
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
         // GET : Lấy đề thi chi tiết
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)

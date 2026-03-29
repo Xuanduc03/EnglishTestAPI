@@ -58,31 +58,29 @@ namespace App.Domain.Entities
     public enum QuestionTypeEnum
     {
         // ── TOEIC ─────────────────────────────────────────
-        SingleChoice = 1,    // Part 1,2,3,4,5,6,7 — MCQ 4 đáp án
-        MultipleChoice = 2,    // Chọn nhiều đáp án
-        FillBlank = 3,    // Part 5,6 — điền từ vào chỗ trống
+        SingleChoice = 1,   // Part 1/2/3/4/5/6/7
+        MultipleChoice = 2,   // Chọn nhiều đáp án
+        FillBlank = 3,   // Part 5/6 — 4 đáp án A/B/C/D
 
-        // ── MATCHING (IELTS Reading/Listening) ────────────
-        Matching = 4,    // Nối thông tin chung
-        MatchingHeading = 5,    // Nối tiêu đề đoạn văn
-        MatchingInformation = 6,    // Nối thông tin vào đoạn
+        // ── IELTS Matching ────────────────────────────────
+        Matching = 4,   // Matching Features
+        MatchingHeading = 5,   // Matching Headings (i, ii, iii...)
+        MatchingInformation = 6,   // Matching Information (A, B, C...)
+        MatchingSentenceEnds = 7,   // Matching Sentence Endings  ← thêm
 
-        // ── SHORT ANSWER (IELTS) ──────────────────────────
-        ShortAnswer = 7,    // Trả lời ngắn (≤3 từ)
-        NoteCompletion = 8,    // Điền vào ghi chú
-        FormCompletion = 9,    // Điền vào form/bảng
-        MapLabeling = 10,   // Điền nhãn bản đồ/sơ đồ
-        SentenceCompletion = 11, // Hoàn thành câu
+        // ── IELTS True/False/Not Given ─────────────────────
+        TrueFalseNotGiven = 8,   // TRUE / FALSE / NOT GIVEN  ← đổi số
+        YesNoNotGiven = 9,   // YES / NO / NOT GIVEN      ← đổi số
 
-        // ── TRUE/FALSE/NOT GIVEN (IELTS Reading) ──────────
-        TrueFalseNotGiven = 12,   // True / False / Not Given
-        YesNoNotGiven = 13,   // Yes / No / Not Given (quan điểm tác giả)
-
-        // ── WRITING ───────────────────────────────────────
-        Writing = 14,   // Tự luận — AI chấm
-
-        // ── SPEAKING ─────────────────────────────────────
-        Speaking = 15,   // Nói — AI chấm
+        // ── IELTS + TOEIC Completion ──────────────────────
+        // Chấm bằng string.Equals(userInput, Answer.Content, OrdinalIgnoreCase)
+        ShortAnswer = 10,  // Trả lời ngắn ≤3 từ        ← đổi số
+        NoteCompletion = 11,  // Điền vào ghi chú          ← đổi số
+        FormCompletion = 12,  // Điền vào form             ← đổi số
+        TableCompletion = 13,  // Điền vào bảng             ← thêm
+        SummaryCompletion = 14,  // Điền vào đoạn tóm tắt     ← thêm
+        SentenceCompletion = 15,  // Hoàn thành câu            ← đổi số
+        MapLabeling = 16,  // Điền nhãn bản đồ/sơ đồ   ← đổi số
     }
 
     // ── PromptTypeEnum ────────────────────────────────────

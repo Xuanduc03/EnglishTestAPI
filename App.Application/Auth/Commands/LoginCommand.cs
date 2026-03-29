@@ -32,7 +32,6 @@ namespace App.Application.Auth.Commands
             _config = config;
         }
 
-
         public async Task<LoginResultDto> Handle(LoginUserCommand request, CancellationToken cancellationToken)
         {
 
@@ -44,7 +43,7 @@ namespace App.Application.Auth.Commands
 
             // get user 
             var user = await _dbContext.Users
-                .AsNoTracking()
+               .AsNoTracking()
                .Where(u => u.Email.ToLower() == request.Email.ToLower())
                 .Select(u => new UserAuthInfoDto
                 {

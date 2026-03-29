@@ -13,7 +13,9 @@ namespace App.Application.DTOs
         public string Title { get; set; }
         public string? Description { get; set; }
         public int Duration { get; set; } // Phút
-        public decimal? Price { get; set; }
+        public ExamType Type { get; set; }
+        public ExamCategory Category { get; set; }
+        public ExamLevel Level { get; set; }
     }
 
     // DTO nhẹ: Dùng cho màn hình "Danh sách đề thi" (Table)
@@ -21,14 +23,13 @@ namespace App.Application.DTOs
     {
         public Guid Id { get; set; }
         public decimal TotalScore { get; set; }
-        public string Status { get; set; }      // "Draft", "Published"
-        public int QuestionCount { get; set; }  // Tổng số câu hỏi
+        public ExamStatus Status { get; set; }
+        public int QuestionCount { get; set; }  
         public int Version { get; set; }
         public int ActiveUserCount { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 
-    // DTO nặng: Dùng cho màn hình "Cấu trúc đề thi" (Chi tiết)
     // Chứa cả Sections và Questions bên trong
     public class ExamDetailDto : ExamSummaryDto
     {
@@ -45,8 +46,6 @@ namespace App.Application.DTOs
         public string Name { get; set; }
         public string? Instructions { get; set; }
         public int OrderIndex { get; set; }
-
-        // Danh sách câu hỏi trong phần này
         public List<ExamQuestionDto> Questions { get; set; } = new();
     }
 
@@ -72,7 +71,7 @@ namespace App.Application.DTOs
     public class CreateExamDto : ExamBaseDto
     {
         // Mặc định tạo là Draft
-        public string Status { get; set; } = "Draft";
+        public ExamStatus Status { get; set; } = ExamStatus.Draft;
     }
 
     // Dto trả về kết quả 
@@ -89,7 +88,7 @@ namespace App.Application.DTOs
     // Payload cập nhật thông tin chung (Rename, đổi giờ...)
     public class UpdateExamDto : ExamBaseDto
     {
-        public string Status { get; set; }
+        public ExamStatus Status { get; set; }
     }
 
     // [UC-21] Payload tạo đề TỰ ĐỘNG (Sinh từ ma trận)
