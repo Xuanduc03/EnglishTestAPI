@@ -12,7 +12,9 @@ namespace App.Domain.Entities
         public string Meaning { get; set; }             // Nghĩa của từ
         public int OrderIndex { get; set; }             // STT (có thể dùng để sắp xếp)
         public string? AudioUrl { get; set; }      // Phát âm
+        public string? AudioPublicId { get; set; }
         public string? ImageUrl { get; set; }      // Hình ảnh minh họa
+        public string? ImagePublicId { get; set; }
         public string? Example { get; set; }       // Câu ví dụ
         public string? ExampleMeaning { get; set; } // Nghĩa câu ví dụ
         public string? Level { get; set; }         // A1, A2, B1...

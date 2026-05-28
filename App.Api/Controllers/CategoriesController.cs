@@ -97,10 +97,10 @@ namespace App.Api.Controllers
 
         // get select category 
         [HttpGet("select")]
-        public async Task<IActionResult> GetCategorySelect([FromQuery] string? codeType)
+        public async Task<IActionResult> GetCategorySelect([FromQuery] string? codeType, [FromQuery] string? examType)
         {
 
-            var query = new GetCategorySelectQuery(codeType);
+            var query = new GetCategorySelectQuery(codeType, examType);
             var result = await _mediator.Send(query);
             return Ok(new
             {

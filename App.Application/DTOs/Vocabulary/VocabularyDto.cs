@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace App.Application.DTOs
+namespace App.Application.DTOs.Vocabulary
 {
     // ============================================
     // DTOs

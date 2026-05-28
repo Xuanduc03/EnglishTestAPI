@@ -27,9 +27,13 @@ namespace App.Infrastructure.Services
             string examType,
             CancellationToken cancellationToken = default)
         {
-            var safeExamType = examType == "IELTS_READING"
-                ? "IELTS_READING_QUESTIONS_ONLY"
-                : examType;
+            var safeExamType = examType switch
+            {
+                "IELTS_READING" => "IELTS_READING_QUESTIONS_ONLY",
+                "KET_READING_WRITING" => "KET_READING_WRITING",  
+                "KET_LISTENING" => "KET_LISTENING",         
+                _ => examType
+            };
 
             var prompt = GeminiPrompts.Get(safeExamType);
 
@@ -57,16 +61,27 @@ namespace App.Infrastructure.Services
             var raw = await CallGeminiAsync(body, cancellationToken);
             return ParseGeminiResponse(raw);
         }
-
-        // ── Multiple images ───────────────────────────────────────
         public async Task<string> ExtractExamMultipleAsync(
             List<(string Base64, string MimeType)> images,
             string examType,
             CancellationToken cancellationToken = default)
         {
-            var prompt = GeminiPrompts.Get(examType);
+            var basePrompt = GeminiPrompts.Get(examType);
 
-            var parts = new List<object> { new { text = prompt } };
+            var fullPrompt = $@"{basePrompt}
+
+══════════════════════════════
+MULTI-IMAGE INSTRUCTIONS
+══════════════════════════════
+- You are given {images.Count} images of the SAME exam paper (different pages)
+- Extract ALL questions from ALL images as ONE continuous list
+- orderIndex must be CONTINUOUS across all images (1, 2, 3... do NOT reset)
+- If same question appears in multiple images, extract it ONCE only
+- Treat all images as pages of the SAME document
+- passageContent: if notices/passage spans multiple images, merge into ONE passageContent
+";
+
+            var parts = new List<object> { new { text = fullPrompt } };
             foreach (var img in images)
                 parts.Add(new { inline_data = new { mime_type = img.MimeType, data = img.Base64 } });
 

@@ -1,4 +1,5 @@
-﻿using App.Application.Services.Interface;
+﻿using App.Application.DTOs.Vocabulary;
+using App.Application.Services.Interface;
 using App.Application.Vocabularies.Commands;
 using App.Application.Vocabularies.Queries;
 using MediatR;
@@ -88,6 +89,20 @@ namespace App.Api.Controllers
                 PageSize = pageSize,
             });
             return Ok(new { success = true, data = result });
+        }
+
+
+        //create a new vocalbulary 
+        [Authorize(Roles = "Admin")]
+        [HttpPost("create")]
+        public async Task<IActionResult> CreateWord([FromForm] CreateVocabularyCommand command)
+        {
+            var id = await _mediator.Send(command);
+            return Ok(new { 
+                success = true,
+                data = id
+            });
+           
         }
     }
 

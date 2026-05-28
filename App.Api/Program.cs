@@ -23,7 +23,7 @@ using App.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
+    
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
@@ -70,7 +70,7 @@ builder.Services.AddCors(options =>
         policy =>
         {
             policy.WithOrigins(
-                "http://localhost:5173",
+                "http://localhost:3000",
                 "https://english-test-fe-six.vercel.app"
                 )
                   .AllowAnyHeader()

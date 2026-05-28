@@ -1,4 +1,4 @@
-﻿using App.Application.DTOs;
+﻿using App.Application.DTOs.Vocabulary;
 using App.Application.Interfaces;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
