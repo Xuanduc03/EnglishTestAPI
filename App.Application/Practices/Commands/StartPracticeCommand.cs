@@ -1,6 +1,7 @@
 ﻿using App.Application.DTOs;
 using App.Application.Interfaces;
 using App.Application.Practices.Queries;
+using App.Domain.Domain.Training;
 using App.Domain.Entities;
 using AutoMapper;
 using MediatR;

@@ -67,6 +67,17 @@ namespace App.Application.DTOs
     }
 
 
+    // Filter dto
+    public class GetUsersFilter
+    {
+        public string? Email { get; set; }
+        public string? Fullname { get; set; }
+        public bool? IsActive { get; set; }
+
+        public int Page { get; set; } = 1;
+        public int PageSize { get; set; } = 20;
+    }
+
 
     public class UserStatsDto
     {
@@ -167,46 +178,6 @@ namespace App.Application.DTOs
         public List<Guid> PermissionIds { get; set; }
     }
 
-    public class UserProfile : Profile
-    {
-        public UserProfile()
-        {
-            // ===== User =====
-            CreateMap<User, UserListDto>()
-                .ForMember(d => d.Roles,
-                    o => o.MapFrom(s =>
-                        s.UserRoles.Select(ur => new RoleDto
-                        {
-                            Id = ur.Role.Id,
-                            Name = ur.Role.Name,
-                            Description = ur.Role.Description,
-                            AssignedAt = ur.CreatedAt
-                        })
-                    ));
-
-            CreateMap<User, UserDetailDto>()
-                .ForMember(d => d.Roles,
-                    o => o.MapFrom(s =>
-                        s.UserRoles.Select(ur => new RoleDetailDto
-                        {
-                            Id = ur.Role.Id,
-                            Name = ur.Role.Name,
-                            Description = ur.Role.Description,
-                            AssignedAt = ur.CreatedAt
-                        })
-                    ))
-                .ForMember(d => d.Permissions,
-                    o => o.MapFrom(s =>
-                        s.UserRoles
-                            .SelectMany(ur => ur.Role.RolePermissions)
-                            .Select(rp => rp.Permission.Name)
-                            .Distinct()
-                    ));
-
-
-            CreateMap<UpdateUserDto, User>()
-                .ForAllMembers(o =>
-                    o.Condition((_, _, src) => src != null));
-        }
-    }
+    
+    
 }

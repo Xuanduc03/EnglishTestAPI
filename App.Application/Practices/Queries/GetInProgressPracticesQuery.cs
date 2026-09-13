@@ -1,7 +1,7 @@
 ﻿using App.Application.DTOs;
 using App.Application.Interfaces;
 using App.Application.Services.Interface;
-using App.Domain.Entities;
+using App.Domain.Domain.Training;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 

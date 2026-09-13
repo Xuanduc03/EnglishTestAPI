@@ -1,5 +1,6 @@
 ﻿using App.Application.DTOs;
 using App.Application.Interfaces;
+using App.Domain.Domain.Training;
 using App.Domain.Entities;
 using Hangfire;
 using MediatR;

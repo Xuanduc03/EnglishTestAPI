@@ -61,6 +61,13 @@ builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 builder.Services.AddScoped<IAppDbContext>(provider =>
     provider.GetRequiredService<AppDbContext>());
 
+// Redis cache service 
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
+    options.InstanceName = "ETesting_"; // Prefix để phân biệt key trong Redis
+});
+
 builder.Services.AddControllers();
 
 // Add CORS policy
@@ -77,13 +84,6 @@ builder.Services.AddCors(options =>
                   .AllowAnyMethod()
                   .AllowCredentials();
         });
-});
-
-builder.Services.AddMediatR(cfg =>
-{
-    cfg.RegisterServicesFromAssemblyContaining<StartExamCommand>();  // Assembly chứa commands/queries
-    // cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()); 
-    // cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
 });
 
 
@@ -146,7 +146,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 var appApplicationAssembly = typeof(App.Application.Auth.Commands.RegisterUserCommandHandler).Assembly;
 
 // Đăng ký MediatR và tự động tìm tất cả Handler trong assembly đó
-
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(appApplicationAssembly));
 builder.Services.AddAutoMapper(appApplicationAssembly);
 builder.Services.AddValidatorsFromAssembly(appApplicationAssembly);

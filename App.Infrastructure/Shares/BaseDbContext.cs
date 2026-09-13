@@ -1,14 +1,7 @@
-﻿using App.Application.Interfaces;
-using App.Domain.Shares;
-using App.Infrastructure.Data;
+﻿using App.Domain.Shares;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Text;
 using System.Reflection;
 using App.Application.Services.Interface;
 using App.Domain.Entities;
@@ -43,27 +36,22 @@ namespace App.Infrastructure.Shares
 
         /// <summary>
         /// Cấu hình các ràng buộc dữ liệu khi khởi tạo Model.
-        /// Thực hiện quét và tự động áp dụng Global Query Filter cho các Entity có Soft Delete.
         /// </summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Quét tất cả các Entity trong DbContext
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
-                // Nếu Entity có implement ISoftDelete
                 if (typeof(ISoftDelete).IsAssignableFrom(entityType.ClrType))
                 {
-                    // Dùng Reflection để gọi hàm SetSoftDeleteFilter<T> với T là class cụ thể
-                    // Điều này giúp EF Core hiểu đúng kiểu, KHÔNG BỊ LỖI ép kiểu Interface
                     var method = SetSoftDeleteFilterMethod.MakeGenericMethod(entityType.ClrType);
                     method.Invoke(this, new object[] { modelBuilder });
                 }
             }
         }
 
-        /// <summary>
+        /// <summary>+
         /// Hàm Generic để cấu hình Query Filter cho tính năng xóa mềm (Soft Delete).
         /// Đảm bảo các truy vấn mặc định sẽ bỏ qua dữ liệu đã bị xóa.
         /// </summary>
@@ -83,7 +71,7 @@ namespace App.Infrastructure.Shares
 
 
         // ---------------------------------------------------------
-        // PHẦN 2: XỬ LÝ KHI SAVE (Logic cũ của bạn)
+        // PHẦN 2: XỬ LÝ KHI SAVE 
         // ---------------------------------------------------------
 
         /// <summary>
@@ -138,16 +126,6 @@ namespace App.Infrastructure.Shares
 
         #region Helper Methods
         /// <summary>
-        /// Hỗ trợ tạo truy vấn nhanh cho một Entity.
-        /// </summary>
-        /// <param name="asNoTracking">Có sử dụng NoTracking để tăng hiệu suất truy vấn hay không.</param>
-        public IQueryable<TEntity> Query<TEntity>(bool asNoTracking = false) where TEntity : class
-        {
-            var query = Set<TEntity>().AsQueryable();
-            return asNoTracking ? query.AsNoTracking() : query;
-        }
-
-        /// <summary>
         /// Làm sạch bộ nhớ đệm của ChangeTracker.
         /// </summary>
         public void ClearChangeTracker()
@@ -155,15 +133,7 @@ namespace App.Infrastructure.Shares
             ChangeTracker.Clear();
         }
 
-        public async Task<TEntity> FindAsync<TEntity>(params object[] keyValues) where TEntity : class
-        {
-            return await Set<TEntity>().FindAsync(keyValues);
-        }
 
-        public async Task<TEntity> FirstOrDefaultAsync<TEntity>(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default) where TEntity : class
-        {
-            return await Set<TEntity>().FirstOrDefaultAsync(predicate, cancellationToken);
-        }
         public IModel GetModel()
         {
             return Model;
