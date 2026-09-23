@@ -22,6 +22,7 @@ namespace App.Application.Interfaces
         Task Insert(TEntity entity, CancellationToken ct = default);
         Task InsertMany(IList<TEntity> entities, CancellationToken ct = default);
         Task Update(TEntity entity, CancellationToken ct = default);
+        Task UpdateMany(IList<TEntity> entities, CancellationToken ct = default);
         Task Delete(TEntity entity, CancellationToken ct = default);
         Task<int> DeleteWhere(Expression<Func<TEntity, bool>> where, CancellationToken ct = default);
     }

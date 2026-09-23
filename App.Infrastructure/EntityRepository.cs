@@ -66,6 +66,13 @@ namespace App.Infrastructure
             return Task.CompletedTask;
         }
 
+        public Task UpdateMany(IList<TEntity> entities, CancellationToken ct = default)
+        {
+            _dbSet.UpdateRange(entities);
+            return Task.CompletedTask;
+        }
+
+
         public Task Delete(TEntity entity, CancellationToken ct = default)
         {
             _dbSet.Remove(entity);

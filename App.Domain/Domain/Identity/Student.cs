@@ -18,7 +18,7 @@ namespace App.Domain.Entities
     }
     public class Student : BaseEntity
     {
-        public bool? Gender { get; set; }
+        public Gender? Gender { get; set; }
         public DateTime? DateOfBirth { get; set; }
         public string? AvatarUrl { get; set; }
         public string? AvatarPublicId { get; set; }

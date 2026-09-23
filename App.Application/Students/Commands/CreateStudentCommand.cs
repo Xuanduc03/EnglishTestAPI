@@ -2,7 +2,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using App.Application.Interfaces;
-using App.Application.DTO;
 
 namespace App.Application.Students.Commands
 {

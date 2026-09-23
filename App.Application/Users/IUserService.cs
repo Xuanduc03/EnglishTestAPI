@@ -1,5 +1,4 @@
-﻿using App.Application.DTOs;
-using App.Domain.Identity;
+﻿using App.Domain.Identity;
 
 namespace App.Application.Users
 {

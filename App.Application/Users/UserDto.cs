@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace App.Application.DTOs
+namespace App.Application.Users
 {
     // create user dto
     public class CreateUserDto
@@ -178,6 +178,6 @@ namespace App.Application.DTOs
         public List<Guid> PermissionIds { get; set; }
     }
 
-    
-    
+
+
 }

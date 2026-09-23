@@ -1,10 +1,10 @@
-﻿using App.Application.DTOs;
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using App.Application.Users.Commands;
 using App.Application.Users.Queries;
+using App.Application.Users;
 
 namespace App.API.Controllers
 {

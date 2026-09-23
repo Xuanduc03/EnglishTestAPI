@@ -1,6 +1,6 @@
 ﻿using App.Application.Auth.Commands;
 using App.Application.Auth.Queries;
-using App.Application.DTOs;
+using App.Application.Users;
 using App.Application.Users.Commands;
 using App.Application.Users.Queries;
 using App.Domain.Entities;

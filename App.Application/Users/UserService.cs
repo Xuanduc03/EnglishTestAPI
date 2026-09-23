@@ -1,6 +1,4 @@
-﻿
-using App.Application.DTOs;
-using App.Application.Interfaces;
+﻿using App.Application.Interfaces;
 using App.Domain.Entities;
 using App.Domain.Identity;
 using AutoMapper;
@@ -9,7 +7,7 @@ using System.Text.RegularExpressions;
 
 namespace App.Application.Users
 {
-    
+
     public class UserService : IUserService
     {
         private readonly IRepository<User> _repository;

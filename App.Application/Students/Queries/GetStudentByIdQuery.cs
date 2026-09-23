@@ -1,9 +1,9 @@
-﻿using App.Application.DTO;
-using App.Application.DTOs;
+﻿using App.Application.DTOs;
 using App.Domain.Entities;
 using App.Application.Interfaces;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using App.Application.Students;
 
 namespace App.Application.Queries
 {

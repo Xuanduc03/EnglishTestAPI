@@ -17,8 +17,12 @@ namespace App.Infrastructure.Persistence.Configurations
 
             builder.HasIndex(c => c.CodeType);
 
-            builder.HasIndex(c => new { c.Module, c.CodeType, c.ReferenceId })
-                 .HasDatabaseName("IX_Category_Module_CodeType_Reference");
+            builder.HasOne(c => c.Parent)
+                     .WithMany(c => c.Children)
+                     .HasForeignKey(c => c.ParentId)
+                     .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasIndex(c => new { c.CodeType, c.ParentId });
 
             builder.HasIndex(c => c.Code)
                 .HasDatabaseName("IX_Category_Code")
