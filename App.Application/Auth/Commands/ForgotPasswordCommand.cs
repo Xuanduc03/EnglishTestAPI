@@ -1,5 +1,6 @@
 ﻿using App.Domain.Entities;
 using App.Application.Interfaces;
+using App.Domain.Identity;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -32,7 +33,8 @@ namespace App.Application.Auth.Commands
         public async Task<Unit> Handle(ForgotPasswordCommand request, CancellationToken cancellation)
         {
             // tìm ng dùng
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email, cancellation);
+            var email = request.Email?.Trim().ToLowerInvariant();
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email, cancellation);
 
             if (user == null)
             {
@@ -45,8 +47,12 @@ namespace App.Application.Auth.Commands
             using var sha = SHA256.Create();
             var hashedToken = Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes(resetToken)));
 
-            user.ResetToken = hashedToken;
-            user.ResetTokenExpiry = DateTime.UtcNow.AddHours(1);
+            _context.PasswordResetTokens.Add(new PasswordResetToken
+            {
+                UserId = user.Id,
+                TokenHash = hashedToken,
+                ExpiresAt = DateTime.UtcNow.AddHours(1)
+            });
 
             await _context.SaveChangesAsync(cancellation);
 
@@ -68,7 +74,7 @@ namespace App.Application.Auth.Commands
         {
             var subject = "Yêu cầu đặt lại mật khẩu";
             var body = $@"
-            <h3>Xin chào {user.Fullname ?? user.Email},</h3>
+            <h3>Xin chào {user.FullName},</h3>
             <p>Bạn đã yêu cầu đặt lại mật khẩu. Vui lòng bấm vào liên kết dưới đây để đổi mật khẩu:</p>
             <p><a href='{resetLink}'>Đặt lại mật khẩu</a></p>
             <p>Liên kết này sẽ hết hạn sau 1 giờ.</p>

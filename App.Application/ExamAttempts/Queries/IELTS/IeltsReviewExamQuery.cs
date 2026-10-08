@@ -18,6 +18,7 @@ namespace App.Application.ExamAttempts.Queries.IELTS
     {
         [Required] public Guid AttemptId { get; set; }
         [Required] public Guid? UserId { get; set; }
+        public string? GuestToken { get; set; }
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -138,15 +139,16 @@ namespace App.Application.ExamAttempts.Queries.IELTS
             // ── 1. Load attempt 
             var attempt = await _context.ExamAttempts
                 .AsNoTracking()
+                .Include(a => a.Student)
                 .FirstOrDefaultAsync(a => a.Id == request.AttemptId, ct)
                 ?? throw new KeyNotFoundException($"Không tìm thấy phiên thi {request.AttemptId}");
 
             // ── 2. Auth check 
-            if (attempt.UserId != request.UserId)
-                throw new UnauthorizedAccessException("Không thể xem bài thi của người khác");
+            App.Application.ExamAttempts.GuestAttemptAccess.EnsureOwner(
+                attempt, request.UserId, request.GuestToken);
 
             // ── 3. Chỉ review được bài đã nộp =
-            if (attempt.Status != ExamAttemptStatus.Submitted)
+            if (attempt.Status != ExamAttemptStatus.Submitted && attempt.Status != ExamAttemptStatus.TimedOut)
                 throw new InvalidOperationException("Bài thi chưa được nộp, không thể review");
 
             // ── 4. Load ExamAnswers + toàn bộ dữ liệu liên quan ──
@@ -417,8 +419,11 @@ namespace App.Application.ExamAttempts.Queries.IELTS
 
         private static IeltsQuestionType MapQuestionType(QuestionTypeEnum t) => t switch
         {
+            QuestionTypeEnum.FillBlank => IeltsQuestionType.FillBlank,
             QuestionTypeEnum.FormCompletion => IeltsQuestionType.FormCompletion,
             QuestionTypeEnum.NoteCompletion => IeltsQuestionType.NoteCompletion,
+            QuestionTypeEnum.TableCompletion => IeltsQuestionType.TableCompletion,
+            QuestionTypeEnum.SummaryCompletion => IeltsQuestionType.SummaryCompletion,
             QuestionTypeEnum.SentenceCompletion => IeltsQuestionType.SentenceCompletion,
             QuestionTypeEnum.ShortAnswer => IeltsQuestionType.ShortAnswer,
             QuestionTypeEnum.MapLabeling => IeltsQuestionType.MapLabeling,
@@ -428,6 +433,7 @@ namespace App.Application.ExamAttempts.Queries.IELTS
             QuestionTypeEnum.YesNoNotGiven => IeltsQuestionType.YesNoNotGiven,
             QuestionTypeEnum.MatchingHeading => IeltsQuestionType.MatchingHeading,
             QuestionTypeEnum.MatchingInformation => IeltsQuestionType.MatchingInformation,
+            QuestionTypeEnum.MatchingSentenceEnds => IeltsQuestionType.MatchingSentenceEnds,
             QuestionTypeEnum.Matching => IeltsQuestionType.Matching,
             _ => IeltsQuestionType.ShortAnswer,
         };

@@ -25,13 +25,13 @@ namespace App.Application.Admin.Queries
         {
             // Submitted attempts
             var submissions = await _context.ExamAttempts
-                .Where(a => a.Status == ExamAttemptStatus.Submitted && a.SubmitedAt != null)
+                .Where(a => a.StudentId != null && a.Status == ExamAttemptStatus.Submitted && a.SubmitedAt != null)
                 .OrderByDescending(a => a.SubmitedAt)
                 .Take(request.Take)
                 .Select(a => new RecentActivityDto
                 {
-                    UserId = a.UserId,
-                    UserName = a.User.Fullname,
+                    UserId = a.Student.UserId,
+                    UserName = a.Student.User.FullName,
                     Action = "submitted",
                     ExamTitle = a.Exam.Title,
                     Score = (double?)(a.TotalScore ?? 0),
@@ -46,7 +46,7 @@ namespace App.Application.Admin.Queries
                 .Select(u => new RecentActivityDto
                 {
                     UserId = u.Id,
-                    UserName = u.Fullname,
+                    UserName = u.FullName,
                     Action = "registered",
                     ExamTitle = string.Empty,
                     Score = null,

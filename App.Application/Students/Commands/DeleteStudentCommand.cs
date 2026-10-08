@@ -28,7 +28,6 @@ namespace App.Application.Commands
 
         public async Task<bool> Handle(DeleteStudentCommand request, CancellationToken cancellationToken)
         {
-            using var transaction = await _context.BeginTransactionAsync(cancellationToken);
             try
             {
                 //1. chuuẩn  hóa id cần xóa
@@ -54,15 +53,27 @@ namespace App.Application.Commands
                     return false;
                 }
                 
-                await _context.SaveChangesAsync(cancellationToken);
+                var students = await _context.Students
+                    .Where(s => targets.Contains(s.Id))
+                    .ToListAsync(cancellationToken);
+                if (students.Count == 0) return false;
 
-                await transaction.CommitAsync(cancellationToken);
+                var now = DateTime.UtcNow;
+                foreach (var student in students)
+                {
+                    student.IsActive = false;
+                    student.IsDeleted = true;
+                    student.DeletedAt = now;
+                    student.DeletedBy = request.DeletedBy;
+                }
+
+                await _context.SaveChangesAsync(cancellationToken);
 
                 return true;
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error deleting student: {ex.Message}", ex);
+                throw;
             }
         }
     }

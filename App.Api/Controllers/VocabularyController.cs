@@ -1,5 +1,4 @@
-﻿using App.Application.DTOs.Vocabulary;
-using App.Application.Services.Interface;
+﻿using App.Application.Services.Interface;
 using App.Application.Vocabularies.Commands;
 using App.Application.Vocabularies.Queries;
 using MediatR;
@@ -31,7 +30,7 @@ namespace App.Api.Controllers
         {
             var result = await _mediator.Send(new GetTodayVocabularyQuery
             {
-                UserId = _currentUser.UserId!.Value,
+                UserId = CurrentUserId,
                 MaxCards = maxCards,
             });
             return Ok(new { success = true, data = result });
@@ -46,7 +45,7 @@ namespace App.Api.Controllers
         {
             var result = await _mediator.Send(new ReviewVocabularyCommand
             {
-                UserId = _currentUser.UserId!.Value,
+                UserId = CurrentUserId,
                 WordId = request.WordId,
                 Remembered = request.Remembered,
             });
@@ -62,7 +61,7 @@ namespace App.Api.Controllers
         {
             var result = await _mediator.Send(new GetVocabSessionSummaryQuery
             {
-                UserId = _currentUser.UserId!.Value,
+                UserId = CurrentUserId,
                 Date = date,
             });
             return Ok(new { success = true, data = result });
@@ -104,6 +103,9 @@ namespace App.Api.Controllers
             });
            
         }
+
+        private Guid CurrentUserId => _currentUser.UserId
+            ?? throw new UnauthorizedAccessException("Invalid user token");
     }
 
     // Request body DTOs

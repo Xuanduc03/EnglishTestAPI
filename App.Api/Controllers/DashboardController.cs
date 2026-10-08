@@ -1,6 +1,7 @@
 ﻿using App.Application.Leaderboards.Queries;
 using App.Application.Students.Queries;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,6 +22,7 @@ namespace App.Api.Controllers
         }
 
         [HttpGet("info")]
+        [Authorize]
         public async Task<IActionResult> GetDashboardInfo()
         {
             var query = new GetDashboardInfoQuery();

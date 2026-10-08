@@ -24,6 +24,7 @@ namespace App.Application.ExamAttempts.Commands.IELTS
     public class IeltsStartExamResult
     {
         public Guid AttemptId { get; set; }
+        public string? GuestToken { get; set; }
         public DateTime StartedAt { get; set; }
         public DateTime? ExpiresAt { get; set; }
         public int TimeLimitSeconds { get; set; }
@@ -139,7 +140,25 @@ namespace App.Application.ExamAttempts.Commands.IELTS
             CancellationToken ct)
         {
             // ── 1. Auth ──────────────────────────────────────────
-            var currentUserId = ResolveUserId(command.UserId);
+            Guid? studentId = null;
+            string? guestToken = null;
+            if (_currentUserService.UserId.HasValue)
+            {
+                var currentUserId = ResolveUserId(command.UserId);
+                var id = await _context.Students
+                    .Where(s => s.UserId == currentUserId && s.IsActive)
+                    .Select(s => s.Id)
+                    .FirstOrDefaultAsync(ct);
+                if (id == Guid.Empty)
+                    throw new KeyNotFoundException("Không tìm thấy hồ sơ học viên đang hoạt động.");
+                studentId = id;
+            }
+            else
+            {
+                if (command.UserId != Guid.Empty)
+                    throw new UnauthorizedAccessException("Không thể bắt đầu bài thi cho người dùng khác.");
+                guestToken = App.Application.ExamAttempts.GuestAttemptAccess.CreateToken();
+            }
 
             // ── 2. Load & validate exam ──────────────────────────
             var exam = await _context.Exams
@@ -154,16 +173,18 @@ namespace App.Application.ExamAttempts.Commands.IELTS
             using var tx = await _context.BeginTransactionAsync(ct);
             try
             {
-                var active = await _context.ExamAttempts
-                    .FirstOrDefaultAsync(a =>
-                        a.UserId == currentUserId &&
-                        a.ExamId == command.ExamId &&
-                        a.Status == ExamAttemptStatus.InProgress &&
-                        a.ExpiresAt > DateTime.UtcNow, ct);
-
-                if (active != null)
-                    throw new InvalidOperationException(
-                        $"Đang có phiên thi chưa hoàn thành: {active.Id}");
+                if (studentId.HasValue)
+                {
+                    var active = await _context.ExamAttempts
+                        .FirstOrDefaultAsync(a =>
+                            a.StudentId == studentId &&
+                            a.ExamId == command.ExamId &&
+                            a.Status == ExamAttemptStatus.InProgress &&
+                            a.ExpiresAt > DateTime.UtcNow, ct);
+                    if (active != null)
+                        throw new InvalidOperationException(
+                            $"Đang có phiên thi chưa hoàn thành: {active.Id}");
+                }
 
                 // ── 4. Tạo attempt ────────────────────────────────
                 var now = DateTime.UtcNow;
@@ -172,12 +193,12 @@ namespace App.Application.ExamAttempts.Commands.IELTS
                 var attempt = new ExamAttempt
                 {
                     Id = Guid.NewGuid(),
-                    UserId = currentUserId,
+                    StudentId = studentId,
+                    GuestTokenHash = guestToken == null ? null : App.Application.ExamAttempts.GuestAttemptAccess.HashToken(guestToken),
                     ExamId = exam.Id,
                     StartedAt = now,
                     ExpiresAt = now.AddSeconds(timeLimitSeconds),
                     TimeLimitSeconds = timeLimitSeconds,
-                    Status = ExamAttemptStatus.InProgress,
                     CreatedAt = now,
                     UpdatedAt = now,
                 };
@@ -214,7 +235,9 @@ namespace App.Application.ExamAttempts.Commands.IELTS
                 await tx.CommitAsync(ct);
 
                 // ── 7. Build response ─────────────────────────────
-                return BuildResult(attempt, sections);
+                var result = BuildResult(attempt, sections);
+                result.GuestToken = guestToken;
+                return result;
             }
             catch
             {
@@ -302,15 +325,15 @@ namespace App.Application.ExamAttempts.Commands.IELTS
 
                             // Options chỉ có ý nghĩa với MCQ / T-F-NG / Matching
                             // FormCompletion / FillBlank → Answers rỗng → Options rỗng → đúng
-                            Options = q.Answers
-                                .OrderBy(a => a.OrderIndex)
-                                .Select(a => new IeltsAnswerOption
-                                {
-                                    Id = a.Id,
-                                    Content = a.Content,
-                                    OrderIndex = a.OrderIndex,
-                                })
-                                .ToList(),
+                            Options = HasOptions(q.QuestionType)
+                                ? q.Answers.OrderBy(a => a.OrderIndex)
+                                    .Select(a => new IeltsAnswerOption
+                                    {
+                                        Id = a.Id,
+                                        Content = a.Content,
+                                        OrderIndex = a.OrderIndex,
+                                    }).ToList()
+                                : new List<IeltsAnswerOption>(),
                         };
                     }).ToList();
 
@@ -318,7 +341,7 @@ namespace App.Application.ExamAttempts.Commands.IELTS
                     {
                         GroupId = group?.Id ?? firstQ.Id,
                         AudioUrl = audioUrl,
-                        Transcript = group?.Transcript,   // trả null khi làm bài, expose sau khi nộp
+                        Transcript = null,
                         PassageHtml = passageHtml,
                         ImageUrl = imageUrl,
                         Questions = questions,
@@ -385,6 +408,12 @@ namespace App.Application.ExamAttempts.Commands.IELTS
             _ => IeltsQuestionType.ShortAnswer,
         };
 
+        private static bool HasOptions(QuestionTypeEnum type) => type is
+            QuestionTypeEnum.SingleChoice or QuestionTypeEnum.MultipleChoice or
+            QuestionTypeEnum.Matching or QuestionTypeEnum.MatchingHeading or
+            QuestionTypeEnum.MatchingInformation or QuestionTypeEnum.MatchingSentenceEnds or
+            QuestionTypeEnum.TrueFalseNotGiven or QuestionTypeEnum.YesNoNotGiven;
+
         private static bool IsAudio(string? t, string? u) =>
             !string.IsNullOrWhiteSpace(t)
                 ? t.ToLower() == "audio"
@@ -403,7 +432,8 @@ namespace App.Application.ExamAttempts.Commands.IELTS
 
         private Guid ResolveUserId(Guid requestUserId)
         {
-            if (requestUserId == Guid.Empty) return Guid.NewGuid(); // guest
+            if (requestUserId == Guid.Empty)
+                throw new UnauthorizedAccessException("Cần đăng nhập để bắt đầu bài thi.");
 
             var loggedIn = _currentUserService.UserId;
             if (loggedIn == Guid.Empty)
@@ -416,6 +446,8 @@ namespace App.Application.ExamAttempts.Commands.IELTS
 
         private static void ValidateExam(Exam exam)
         {
+            if (!exam.IsActive || exam.Type != ExamType.IELTS)
+                throw new InvalidOperationException("Đề thi IELTS không khả dụng");
             if (exam.Status != ExamStatus.Published)
                 throw new InvalidOperationException($"Bài thi chưa xuất bản ({exam.Status})");
 

@@ -5,6 +5,7 @@ using App.Application.Share;
 using App.Domain.Entities;
 using AutoMapper;
 using App.Application.Interfaces;
+using App.Domain.Identity;
 
 namespace App.Application.Users.Queries
 {
@@ -12,9 +13,8 @@ namespace App.Application.Users.Queries
     public record GetUsersQuery : BaseGetAllQuery<UserListDto>
     {
         // filter of user
-        public List<Guid>? RoleIds { get; init; }
+        public UserRole? Role { get; init; }
         public bool? IsActive { get; init; }
-        public bool? IsEmailVerified { get; init; }
         public string? SortColumn { get; init; }
         public string? SortOrder {  get; init; }
         public bool IncludeDeleted { get; init; } = false;
@@ -26,24 +26,42 @@ namespace App.Application.Users.Queries
         {
         }
 
+        protected override bool ApplySoftDeleteFilter(GetUsersQuery request) => !request.IncludeDeleted;
+
+        protected override IQueryable<User> ApplySorting(IQueryable<User> query, Dictionary<string, string>? sort)
+        {
+            if (sort == null || sort.Count == 0) return query;
+            var (column, direction) = sort.First();
+            var descending = string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase);
+            return column.ToLowerInvariant() switch
+            {
+                "fullname" => descending ? query.OrderByDescending(u => u.FullName) : query.OrderBy(u => u.FullName),
+                "email" => descending ? query.OrderByDescending(u => u.Email) : query.OrderBy(u => u.Email),
+                "updatedat" => descending ? query.OrderByDescending(u => u.UpdatedAt) : query.OrderBy(u => u.UpdatedAt),
+                _ => descending ? query.OrderByDescending(u => u.CreatedAt) : query.OrderBy(u => u.CreatedAt)
+            };
+        }
+
         protected override IQueryable<User> BuildQuery(IQueryable<User> query, GetUsersQuery request)
         {
-            //  1. include roles    
-            query = query.Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role);
+            if (request.Page < 1 || request.PageSize is < 1 or > 100)
+                throw new ArgumentOutOfRangeException(nameof(request.PageSize), "Trang hoặc kích thước trang không hợp lệ");
+            if (request.Role.HasValue && !Enum.IsDefined(request.Role.Value))
+                throw new ArgumentException("Vai trò không hợp lệ", nameof(request.Role));
+            query = query.AsNoTracking();
 
             // 2. logic filter keyword 
             if(!string.IsNullOrWhiteSpace(request.Keyword))
             {
                 var keyword = request.Keyword.Trim().ToLower();
                 query = query.Where(u => u.Email.ToLower().Contains(keyword) ||
-                (u.Fullname != null && u.Fullname.ToLower().Contains(keyword)));
+                u.FullName.ToLower().Contains(keyword));
             }
 
             // 3. logic filter active
-            if(request.RoleIds != null && request.RoleIds.Any())
+            if(request.Role.HasValue)
             {
-                query = query.Where(u => u.UserRoles.Any(ur => request.RoleIds.Contains(ur.RoleId)));
+                query = query.Where(u => u.Role == request.Role.Value);
             }
 
             if(request.IsActive.HasValue)
@@ -51,10 +69,6 @@ namespace App.Application.Users.Queries
                 query = query.Where(u => u.IsActive == request.IsActive.Value);
             }
 
-            if (request.IsEmailVerified.HasValue)
-            {
-                query = query.Where(u => u.EmailVerified == request.IsEmailVerified.Value);
-            }
             if (request.IncludeDeleted)
             {
                 query = query.IgnoreQueryFilters();
@@ -70,7 +84,7 @@ namespace App.Application.Users.Queries
                 // Dùng switch expression để map tên cột từ FE sang Property của BE
                 query = sortCol switch
                 {
-                    "fullname" => isDesc ? query.OrderByDescending(u => u.Fullname) : query.OrderBy(u => u.Fullname),
+                    "fullname" => isDesc ? query.OrderByDescending(u => u.FullName) : query.OrderBy(u => u.FullName),
                     "email" => isDesc ? query.OrderByDescending(u => u.Email) : query.OrderBy(u => u.Email),
                     "createdat" => isDesc ? query.OrderByDescending(u => u.CreatedAt) : query.OrderBy(u => u.CreatedAt),
                     "updatedat" => isDesc ? query.OrderByDescending(u => u.UpdatedAt) : query.OrderBy(u => u.UpdatedAt),

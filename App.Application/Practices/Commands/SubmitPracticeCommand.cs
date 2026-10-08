@@ -1,6 +1,8 @@
 ﻿using App.Application.DTOs;
 using App.Application.Interfaces;
+using App.Application.Services.Interface;
 using App.Domain.Entities;
+using App.Domain.Domain.Training;
 using Hangfire;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -36,9 +38,11 @@ namespace App.Application.Practices.Commands
     // handler 
     public class SubmitPraticeCommandHandler(
         IAppDbContext context,
+        ICurrentUserService currentUser,
         IBackgroundJobClient jobs) : IRequestHandler<SubmitPracticeCommand, PracticeResultDto>
     {
         private readonly IAppDbContext _context = context;
+        private readonly ICurrentUserService _currentUser = currentUser;
         private readonly IBackgroundJobClient _jobs = jobs;
 
         public async Task<PracticeResultDto> Handle(SubmitPracticeCommand request, CancellationToken cancellation)
@@ -51,6 +55,9 @@ namespace App.Application.Practices.Commands
                 .Include(a => a.PartResults)
                 .FirstOrDefaultAsync(a => a.Id == request.sessionId, cancellation)
                 ?? throw new KeyNotFoundException("Phiên luyện tập ko tồn tại");
+
+            if (attempt.UserId != _currentUser.UserId)
+                throw new UnauthorizedAccessException("Không có quyền nộp phiên luyện tập này");
 
             if (attempt.Status != AttemptStatus.InProgress)
                 throw new InvalidOperationException("Pratice đã được nạp");
@@ -88,9 +95,7 @@ namespace App.Application.Practices.Commands
             }
 
             // 4. cập nhật attempt
-            attempt.ActualTimeSeconds = request.totalTimeSeconds;
-            attempt.SubmittedAt = DateTime.UtcNow;
-            attempt.Status = attempt.IsTimedOut ? AttemptStatus.TimedOut : AttemptStatus.Submitted;
+            attempt.Submit(DateTime.UtcNow, request.totalTimeSeconds);
 
             // Chỉ tính trắc nghiệm trước, ai answers sẽ cập nhật lại sau khi chấm
             var gradedAnswer = attempt.Answers.Where(a => a.GradingStatus == GradingStatusEnum.NotRequired).ToList();

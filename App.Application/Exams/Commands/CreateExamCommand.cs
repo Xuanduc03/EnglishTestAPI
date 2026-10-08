@@ -71,7 +71,7 @@ namespace App.Application.Exams.Commands
 
 
             // 7. Create exam
-            var exam = new Exam
+            var exam = new Exam(request.IsActive ? ExamStatus.Published : ExamStatus.Draft)
             {
                 Id = Guid.NewGuid(),
                 Code = request.Code,
@@ -93,9 +93,6 @@ namespace App.Application.Exams.Commands
                 // Cài đặt
                 ShuffleQuestions = request.ShuffleQuestions,
                 ShuffleAnswers = request.ShuffleAnswers,
-                Status = request.IsActive ? ExamStatus.Published : ExamStatus.Draft,
-                IsActive = true,
-                Version = 1,
                 CreatedAt = DateTime.UtcNow
             };
 

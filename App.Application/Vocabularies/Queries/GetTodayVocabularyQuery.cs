@@ -1,6 +1,7 @@
 ﻿using App.Application.DTOs.Vocabulary;
 using App.Application.Interfaces;
 using App.Domain.Entities;
+using App.Domain.Domain.Training;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System;

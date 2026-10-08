@@ -22,6 +22,584 @@ namespace App.Infrastructure.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("App.Domain.Domain.Logging.ActivityLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid?>("EntityId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("EntityName")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("varchar(45)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("MetadataJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Module")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Module");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("EntityName", "EntityId");
+
+                    b.ToTable("activity_logs", (string)null);
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Logging.ExamActivityLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int?>("ElapsedSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ExamAttemptId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("varchar(45)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("MetadataJson")
+                        .HasColumnType("json");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("QuestionId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExamAttemptId", "OccurredAt");
+
+                    b.HasIndex("QuestionId", "OccurredAt");
+
+                    b.HasIndex("UserId", "OccurredAt");
+
+                    b.ToTable("exam_activity_logs", (string)null);
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Training.PracticeAnswer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("AiFeedback")
+                        .HasColumnType("longtext");
+
+                    b.Property<double?>("AiScore")
+                        .HasColumnType("double");
+
+                    b.Property<string>("AiScoreDetailJson")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("AnsweredAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("AudioPublicId")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("AudioUrl")
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("ChangeCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("GradedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("GradingStatus")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsAiGraded")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsMarkedForReview")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PracticeAttemptId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int?>("RecordingDurationSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("SelectedAnswerId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("TextAnswer")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("TimeSpentSeconds")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int?>("WordCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PracticeAttemptId")
+                        .HasDatabaseName("IX_PracticeAnswers_AttemptId");
+
+                    b.HasIndex("QuestionId")
+                        .HasDatabaseName("IX_PracticeAnswers_QuestionId");
+
+                    b.HasIndex("SelectedAnswerId");
+
+                    b.HasIndex("PracticeAttemptId", "OrderIndex")
+                        .HasDatabaseName("IX_PracticeAnswers_Attempt_Order");
+
+                    b.HasIndex("QuestionId", "IsCorrect")
+                        .HasDatabaseName("IX_PracticeAnswers_Question_IsCorrect");
+
+                    b.ToTable("practice_answers", (string)null);
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Training.PracticeAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<double>("AccuracyPercentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("double");
+
+                    b.Property<int?>("ActualTimeSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AttemptType")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CorrectAnswers")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("IncorrectAnswers")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsRandomOrder")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<double>("Score")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("double");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("TimeLimitSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int>("TotalQuestions")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TotalTimeSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnansweredQuestions")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("IX_PracticeAttempts_CategoryId");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_PracticeAttempts_Status");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_PracticeAttempts_UserId");
+
+                    b.HasIndex("CategoryId", "Score")
+                        .HasDatabaseName("IX_PracticeAttempts_Category_Score");
+
+                    b.HasIndex("UserId", "StartedAt")
+                        .HasDatabaseName("IX_PracticeAttempts_User_StartedAt");
+
+                    b.ToTable("practice_attempts", (string)null);
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Training.PracticePartResult", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<double?>("AverageAiScore")
+                        .HasColumnType("double");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("CorrectAnswers")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("FailedGradingCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("IncorrectAnswers")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("PartName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("PartNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PendingGradingCount")
+                        .HasColumnType("int");
+
+                    b.Property<double>("Percentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("double");
+
+                    b.Property<Guid>("PracticeAttemptId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("TotalQuestions")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalTimeSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnansweredQuestions")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("PracticeAttemptId")
+                        .HasDatabaseName("IX_PracticePartResults_AttemptId");
+
+                    b.HasIndex("PracticeAttemptId", "PartNumber")
+                        .HasDatabaseName("IX_PracticePartResults_Attempt_PartNumber");
+
+                    b.ToTable("practice_part_results", (string)null);
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Training.UserVocabularyProgress", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<double>("EaseFactor")
+                        .HasColumnType("double");
+
+                    b.Property<int>("Interval")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("LastReviewedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("NextReviewAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("RepetitionCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("TimesCorrect")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TimesReviewed")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("WordId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("WordId");
+
+                    b.ToTable("UserVocabularyProgresses");
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Training.VocabularyWord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("AudioPublicId")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("AudioUrl")
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Example")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ExampleMeaning")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ImagePublicId")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Level")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Meaning")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PartOfSpeech")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Phonetic")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Word")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.ToTable("VocabularyWords");
+                });
+
             modelBuilder.Entity("App.Domain.Entities.Answer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -75,7 +653,7 @@ namespace App.Infrastructure.Migrations
 
                     b.HasIndex("QuestionId");
 
-                    b.ToTable("answers", (string)null);
+                    b.ToTable("Answers");
                 });
 
             modelBuilder.Entity("App.Domain.Entities.Category", b =>
@@ -114,6 +692,9 @@ namespace App.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<int>("Module")
+                        .HasColumnType("int");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -132,11 +713,14 @@ namespace App.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Code");
+                    b.HasIndex("Code")
+                        .HasDatabaseName("IX_Category_Code");
 
                     b.HasIndex("CodeType");
 
                     b.HasIndex("ParentId");
+
+                    b.HasIndex("CodeType", "ParentId");
 
                     b.ToTable("categories", (string)null);
                 });
@@ -152,7 +736,8 @@ namespace App.Infrastructure.Migrations
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -167,7 +752,8 @@ namespace App.Infrastructure.Migrations
                         .HasColumnType("char(36)");
 
                     b.Property<string>("Description")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
 
                     b.Property<int>("Duration")
                         .HasColumnType("int");
@@ -176,7 +762,9 @@ namespace App.Infrastructure.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
@@ -191,26 +779,34 @@ namespace App.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<bool>("ShuffleAnswers")
-                        .HasColumnType("tinyint(1)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("ShuffleQuestions")
-                        .HasColumnType("tinyint(1)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
 
                     b.Property<DateTime?>("StartDate")
                         .HasColumnType("datetime(6)");
 
                     b.Property<int>("Status")
-                        .HasColumnType("int");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("Tags")
                         .HasColumnType("longtext");
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<decimal>("TotalScore")
-                        .HasColumnType("decimal(65,30)");
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<int>("Type")
                         .HasColumnType("int");
@@ -222,9 +818,14 @@ namespace App.Infrastructure.Migrations
                         .HasColumnType("char(36)");
 
                     b.Property<int>("Version")
-                        .HasColumnType("int");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("exams", (string)null);
                 });
@@ -362,6 +963,10 @@ namespace App.Infrastructure.Migrations
                     b.Property<DateTime?>("ExpiresAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("GuestTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
                     b.Property<int>("IncorrectAnswers")
                         .HasColumnType("int");
 
@@ -392,6 +997,9 @@ namespace App.Infrastructure.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("StudentId")
+                        .HasColumnType("char(36)");
+
                     b.Property<DateTime?>("SubmitedAt")
                         .HasColumnType("datetime(6)");
 
@@ -413,9 +1021,6 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
                     b.Property<DateTime>("VersionNumber")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -425,7 +1030,7 @@ namespace App.Infrastructure.Migrations
 
                     b.HasIndex("ExamId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("StudentId");
 
                     b.ToTable("exam_attempts", (string)null);
                 });
@@ -458,16 +1063,21 @@ namespace App.Infrastructure.Migrations
                         .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("IsMandatory")
-                        .HasColumnType("tinyint(1)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("IsShuffleable")
-                        .HasColumnType("tinyint(1)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
 
                     b.Property<int>("OrderIndex")
                         .HasColumnType("int");
 
                     b.Property<decimal>("Point")
-                        .HasColumnType("decimal(65,30)");
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<Guid>("QuestionId")
                         .HasColumnType("char(36)");
@@ -483,11 +1093,20 @@ namespace App.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ExamId");
+                    b.HasIndex("ExamId")
+                        .HasDatabaseName("IX_ExamQuestions_ExamId");
 
-                    b.HasIndex("ExamSectionId");
+                    b.HasIndex("ExamSectionId")
+                        .HasDatabaseName("IX_ExamQuestions_ExamSectionId");
 
-                    b.HasIndex("QuestionId");
+                    b.HasIndex("QuestionId")
+                        .HasDatabaseName("IX_ExamQuestions_QuestionId");
+
+                    b.HasIndex("ExamId", "QuestionNo")
+                        .IsUnique();
+
+                    b.HasIndex("ExamSectionId", "OrderIndex")
+                        .IsUnique();
 
                     b.ToTable("exam_questions", (string)null);
                 });
@@ -581,7 +1200,8 @@ namespace App.Infrastructure.Migrations
                         .HasColumnType("char(36)");
 
                     b.Property<string>("Instructions")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
@@ -603,6 +1223,9 @@ namespace App.Infrastructure.Migrations
                     b.HasIndex("CategoryId");
 
                     b.HasIndex("ExamId");
+
+                    b.HasIndex("ExamId", "OrderIndex")
+                        .IsUnique();
 
                     b.ToTable("exam_sections", (string)null);
                 });
@@ -659,361 +1282,11 @@ namespace App.Infrastructure.Migrations
                     b.ToTable("exam_section_results", (string)null);
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.Permission", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Module")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("permissions", (string)null);
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.PracticeAnswer", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("AiFeedback")
-                        .HasColumnType("longtext");
-
-                    b.Property<double?>("AiScore")
-                        .HasColumnType("double");
-
-                    b.Property<string>("AiScoreDetailJson")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime?>("AnsweredAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("AudioPublicId")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("AudioUrl")
-                        .HasColumnType("longtext");
-
-                    b.Property<int?>("ChangeCount")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("GradedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("GradingStatus")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("IsAiGraded")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsCorrect")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsMarkedForReview")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("tinyint(1)")
-                        .HasDefaultValue(false);
-
-                    b.Property<int>("OrderIndex")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("PracticeAttemptId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("QuestionId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<int?>("RecordingDurationSeconds")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("SelectedAnswerId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("TextAnswer")
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("TimeSpentSeconds")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<int?>("WordCount")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PracticeAttemptId")
-                        .HasDatabaseName("IX_PracticeAnswers_AttemptId");
-
-                    b.HasIndex("QuestionId")
-                        .HasDatabaseName("IX_PracticeAnswers_QuestionId");
-
-                    b.HasIndex("SelectedAnswerId");
-
-                    b.HasIndex("PracticeAttemptId", "OrderIndex")
-                        .HasDatabaseName("IX_PracticeAnswers_Attempt_Order");
-
-                    b.HasIndex("QuestionId", "IsCorrect")
-                        .HasDatabaseName("IX_PracticeAnswers_Question_IsCorrect");
-
-                    b.ToTable("PracticeAnswers");
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.PracticeAttempt", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<double>("AccuracyPercentage")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("double");
-
-                    b.Property<int?>("ActualTimeSeconds")
-                        .HasColumnType("int");
-
-                    b.Property<int>("AttemptType")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("CategoryId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("CorrectAnswers")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<int>("IncorrectAnswers")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsRandomOrder")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<double>("Score")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("double");
-
-                    b.Property<DateTime>("StartedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("SubmittedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("TimeLimitSeconds")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<int>("TotalQuestions")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("TotalTimeSeconds")
-                        .HasColumnType("int");
-
-                    b.Property<int>("UnansweredQuestions")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CategoryId")
-                        .HasDatabaseName("IX_PracticeAttempts_CategoryId");
-
-                    b.HasIndex("Status")
-                        .HasDatabaseName("IX_PracticeAttempts_Status");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("IX_PracticeAttempts_UserId");
-
-                    b.HasIndex("CategoryId", "Score")
-                        .HasDatabaseName("IX_PracticeAttempts_Category_Score");
-
-                    b.HasIndex("UserId", "StartedAt")
-                        .HasDatabaseName("IX_PracticeAttempts_User_StartedAt");
-
-                    b.ToTable("PracticeAttempts");
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.PracticePartResult", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<double?>("AverageAiScore")
-                        .HasColumnType("double");
-
-                    b.Property<Guid>("CategoryId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<int>("CorrectAnswers")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<int>("FailedGradingCount")
-                        .HasColumnType("int");
-
-                    b.Property<int>("IncorrectAnswers")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("PartName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<int>("PartNumber")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PendingGradingCount")
-                        .HasColumnType("int");
-
-                    b.Property<double>("Percentage")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("double");
-
-                    b.Property<Guid>("PracticeAttemptId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<int>("TotalQuestions")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TotalTimeSeconds")
-                        .HasColumnType("int");
-
-                    b.Property<int>("UnansweredQuestions")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CategoryId");
-
-                    b.HasIndex("PracticeAttemptId")
-                        .HasDatabaseName("IX_PracticePartResults_AttemptId");
-
-                    b.HasIndex("PracticeAttemptId", "PartNumber")
-                        .HasDatabaseName("IX_PracticePartResults_Attempt_PartNumber");
-
-                    b.ToTable("PracticePartResults");
-                });
-
             modelBuilder.Entity("App.Domain.Entities.Question", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
-
-                    b.Property<int?>("ActualWordCount")
-                        .HasColumnType("int");
 
                     b.Property<string>("AiPromptTemplate")
                         .HasColumnType("longtext");
@@ -1049,16 +1322,22 @@ namespace App.Infrastructure.Migrations
                         .HasColumnType("char(36)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("IsAiGraded")
-                        .HasColumnType("tinyint(1)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("IsPublic")
-                        .HasColumnType("tinyint(1)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
 
                     b.Property<int?>("MaxWords")
                         .HasColumnType("int");
@@ -1075,6 +1354,9 @@ namespace App.Infrastructure.Migrations
                     b.Property<string>("PromptTypes")
                         .HasColumnType("longtext");
 
+                    b.Property<Guid?>("QuestionGroupId")
+                        .HasColumnType("char(36)");
+
                     b.Property<string>("QuestionType")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -1086,7 +1368,9 @@ namespace App.Infrastructure.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<bool>("ShuffleAnswers")
-                        .HasColumnType("tinyint(1)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
 
                     b.Property<int?>("TimeLimitSeconds")
                         .HasColumnType("int");
@@ -1099,11 +1383,22 @@ namespace App.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CategoryId");
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("IX_Questions_CategoryId");
 
-                    b.HasIndex("DifficultyId");
+                    b.HasIndex("DifficultyId")
+                        .HasDatabaseName("IX_Questions_DifficultyId");
 
-                    b.HasIndex("GroupId");
+                    b.HasIndex("GroupId")
+                        .HasDatabaseName("IX_Questions_GroupId");
+
+                    b.HasIndex("QuestionGroupId");
+
+                    b.HasIndex("GroupId", "OrderIndex")
+                        .HasDatabaseName("IX_Questions_Group_OrderIndex");
+
+                    b.HasIndex("CategoryId", "IsActive", "IsPublic")
+                        .HasDatabaseName("IX_Questions_Category_Active_Public");
 
                     b.ToTable("questions", (string)null);
                 });
@@ -1162,7 +1457,7 @@ namespace App.Infrastructure.Migrations
 
                     b.HasIndex("DifficultyId");
 
-                    b.ToTable("question_groups", (string)null);
+                    b.ToTable("QuestionGroups");
                 });
 
             modelBuilder.Entity("App.Domain.Entities.QuestionGroupMedia", b =>
@@ -1330,126 +1625,6 @@ namespace App.Infrastructure.Migrations
                     b.ToTable("question_tags", (string)null);
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.RefreshToken", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime>("ExpiredAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("RevokedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("RefreshTokens");
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.Role", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("roles", (string)null);
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.RolePermission", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("AssignedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid>("AssignedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<Guid>("PermissionId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("RoleId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PermissionId");
-
-                    b.HasIndex("RoleId", "PermissionId")
-                        .IsUnique();
-
-                    b.ToTable("role_permissions", (string)null);
-                });
-
             modelBuilder.Entity("App.Domain.Entities.ScoreTable", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1495,7 +1670,8 @@ namespace App.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SkillCategoryId");
+                    b.HasIndex("SkillCategoryId")
+                        .HasDatabaseName("IX_ScoreTables_SkillCategoryId");
 
                     b.ToTable("score_tables", (string)null);
                 });
@@ -1550,8 +1726,16 @@ namespace App.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<string>("CCCD")
+                    b.Property<string>("AvatarPublicId")
+                        .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("CCCD")
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -1590,13 +1774,17 @@ namespace App.Infrastructure.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<int>("Points")
-                        .HasColumnType("int");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("SBD")
                         .HasColumnType("longtext");
 
                     b.Property<int>("Streak")
-                        .HasColumnType("int");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -1609,8 +1797,6 @@ namespace App.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CCCD");
-
                     b.HasIndex("UserId")
                         .IsUnique();
 
@@ -1622,12 +1808,6 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
-
-                    b.Property<string>("AvatarPublicId")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("AvatarUrl")
-                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -1643,41 +1823,46 @@ namespace App.Infrastructure.Migrations
 
                     b.Property<string>("Email")
                         .IsRequired()
+                        .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
-                    b.Property<bool>("EmailVerified")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<int>("FailedLoginAttempts")
-                        .HasColumnType("int");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
-                    b.Property<string>("Fullname")
+                    b.Property<string>("FullName")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("Fullname");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<DateTime?>("LastLogin")
-                        .HasColumnType("datetime(6)");
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("LastLogin");
 
                     b.Property<DateTime?>("LockoutEnd")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("Password")
-                        .HasColumnType("longtext");
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)")
+                        .HasColumnName("Password");
 
                     b.Property<string>("Phone")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
-                    b.Property<string>("ResetToken")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime?>("ResetTokenExpiry")
-                        .HasColumnType("datetime(6)");
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -1691,55 +1876,6 @@ namespace App.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("users", (string)null);
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.UserRole", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("AssignedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid>("AssignedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<Guid>("RoleId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RoleId");
-
-                    b.HasIndex("UserId", "RoleId")
-                        .IsUnique();
-
-                    b.ToTable("user_roles", (string)null);
                 });
 
             modelBuilder.Entity("App.Domain.Entities.UserStatistics", b =>
@@ -1792,7 +1928,7 @@ namespace App.Infrastructure.Migrations
                     b.ToTable("user_statistics", (string)null);
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.UserVocabularyProgress", b =>
+            modelBuilder.Entity("App.Domain.Identity.PasswordResetToken", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1810,68 +1946,46 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("char(36)");
 
-                    b.Property<double>("EaseFactor")
-                        .HasColumnType("double");
-
-                    b.Property<int>("Interval")
-                        .HasColumnType("int");
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<DateTime?>("LastReviewedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("NextReviewAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("RepetitionCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
+                    b.Property<string>("RequestedByIp")
                         .HasColumnType("longtext");
 
-                    b.Property<int>("TimesCorrect")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TimesReviewed")
-                        .HasColumnType("int");
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid>("WordId")
-                        .HasColumnType("char(36)");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
 
-                    b.HasIndex("WordId");
+                    b.HasIndex("UserId", "ExpiresAt");
 
-                    b.ToTable("UserVocabularyProgresses");
+                    b.ToTable("password_reset_tokens", (string)null);
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.VocabularyWord", b =>
+            modelBuilder.Entity("App.Domain.Identity.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("AudioPublicId")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("AudioUrl")
-                        .HasColumnType("longtext");
-
-                    b.Property<Guid?>("CategoryId")
                         .HasColumnType("char(36)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -1880,44 +1994,34 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("char(36)");
 
+                    b.Property<string>("CreatedByIp")
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("char(36)");
 
-                    b.Property<string>("Example")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("ExampleMeaning")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("ImagePublicId")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("ImageUrl")
-                        .HasColumnType("longtext");
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<string>("Level")
+                    b.Property<string>("ReplacedByTokenHash")
                         .HasColumnType("longtext");
 
-                    b.Property<string>("Meaning")
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("RevokedByIp")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TokenHash")
                         .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("OrderIndex")
-                        .HasColumnType("int");
-
-                    b.Property<string>("PartOfSpeech")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Phonetic")
-                        .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -1925,24 +2029,158 @@ namespace App.Infrastructure.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("char(36)");
 
-                    b.Property<string>("Word")
-                        .IsRequired()
+                    b.Property<string>("UserAgent")
                         .HasColumnType("longtext");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CategoryId");
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
 
-                    b.ToTable("VocabularyWords");
+                    b.HasIndex("UserId", "ExpiresAt");
+
+                    b.ToTable("RefreshTokens", (string)null);
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Logging.ActivityLog", b =>
+                {
+                    b.HasOne("App.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Logging.ExamActivityLog", b =>
+                {
+                    b.HasOne("App.Domain.Entities.ExamAttempt", "ExamAttempt")
+                        .WithMany()
+                        .HasForeignKey("ExamAttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("App.Domain.Entities.Question", "Question")
+                        .WithMany()
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("App.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ExamAttempt");
+
+                    b.Navigation("Question");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Training.PracticeAnswer", b =>
+                {
+                    b.HasOne("App.Domain.Domain.Training.PracticeAttempt", "PracticeAttempt")
+                        .WithMany("Answers")
+                        .HasForeignKey("PracticeAttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("App.Domain.Entities.Question", "Question")
+                        .WithMany()
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("App.Domain.Entities.Answer", "SelectedAnswer")
+                        .WithMany()
+                        .HasForeignKey("SelectedAnswerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("PracticeAttempt");
+
+                    b.Navigation("Question");
+
+                    b.Navigation("SelectedAnswer");
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Training.PracticeAttempt", b =>
+                {
+                    b.HasOne("App.Domain.Entities.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("App.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Training.PracticePartResult", b =>
+                {
+                    b.HasOne("App.Domain.Entities.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("App.Domain.Domain.Training.PracticeAttempt", "PracticeAttempt")
+                        .WithMany("PartResults")
+                        .HasForeignKey("PracticeAttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("PracticeAttempt");
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Training.UserVocabularyProgress", b =>
+                {
+                    b.HasOne("App.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("App.Domain.Domain.Training.VocabularyWord", "Word")
+                        .WithMany("Progresses")
+                        .HasForeignKey("WordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+
+                    b.Navigation("Word");
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Training.VocabularyWord", b =>
+                {
+                    b.HasOne("App.Domain.Entities.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId");
+
+                    b.Navigation("Category");
                 });
 
             modelBuilder.Entity("App.Domain.Entities.Answer", b =>
                 {
-                    b.HasOne("App.Domain.Entities.Question", null)
+                    b.HasOne("App.Domain.Entities.Question", "Question")
                         .WithMany("Answers")
                         .HasForeignKey("QuestionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Question");
                 });
 
             modelBuilder.Entity("App.Domain.Entities.Category", b =>
@@ -1966,7 +2204,7 @@ namespace App.Infrastructure.Migrations
                     b.HasOne("App.Domain.Entities.ExamQuestion", "ExamQuestions")
                         .WithMany("ExamAnswers")
                         .HasForeignKey("ExamQuestionId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Attempt");
@@ -1979,18 +2217,17 @@ namespace App.Infrastructure.Migrations
                     b.HasOne("App.Domain.Entities.Exam", "Exam")
                         .WithMany("Attempts")
                         .HasForeignKey("ExamId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("App.Domain.Entities.User", "User")
+                    b.HasOne("App.Domain.Entities.Student", "Student")
                         .WithMany("ExamAttempts")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Exam");
 
-                    b.Navigation("User");
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("App.Domain.Entities.ExamQuestion", b =>
@@ -2077,69 +2314,6 @@ namespace App.Infrastructure.Migrations
                     b.Navigation("Section");
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.PracticeAnswer", b =>
-                {
-                    b.HasOne("App.Domain.Entities.PracticeAttempt", "PracticeAttempt")
-                        .WithMany("Answers")
-                        .HasForeignKey("PracticeAttemptId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("App.Domain.Entities.Question", "Question")
-                        .WithMany()
-                        .HasForeignKey("QuestionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("App.Domain.Entities.Answer", "SelectedAnswer")
-                        .WithMany()
-                        .HasForeignKey("SelectedAnswerId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("PracticeAttempt");
-
-                    b.Navigation("Question");
-
-                    b.Navigation("SelectedAnswer");
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.PracticeAttempt", b =>
-                {
-                    b.HasOne("App.Domain.Entities.Category", "Category")
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("App.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Category");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.PracticePartResult", b =>
-                {
-                    b.HasOne("App.Domain.Entities.Category", "Category")
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("App.Domain.Entities.PracticeAttempt", "PracticeAttempt")
-                        .WithMany("PartResults")
-                        .HasForeignKey("PracticeAttemptId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Category");
-
-                    b.Navigation("PracticeAttempt");
-                });
-
             modelBuilder.Entity("App.Domain.Entities.Question", b =>
                 {
                     b.HasOne("App.Domain.Entities.Category", "Category")
@@ -2154,9 +2328,13 @@ namespace App.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("App.Domain.Entities.QuestionGroup", "Group")
-                        .WithMany("Questions")
+                        .WithMany()
                         .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("App.Domain.Entities.QuestionGroup", null)
+                        .WithMany("Questions")
+                        .HasForeignKey("QuestionGroupId");
 
                     b.Navigation("Category");
 
@@ -2170,13 +2348,12 @@ namespace App.Infrastructure.Migrations
                     b.HasOne("App.Domain.Entities.Category", "Category")
                         .WithMany()
                         .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("App.Domain.Entities.Category", "Difficulty")
                         .WithMany()
-                        .HasForeignKey("DifficultyId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .HasForeignKey("DifficultyId");
 
                     b.Navigation("Category");
 
@@ -2220,36 +2397,6 @@ namespace App.Infrastructure.Migrations
                     b.Navigation("QuestionGroup");
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.RefreshToken", b =>
-                {
-                    b.HasOne("App.Domain.Entities.User", "User")
-                        .WithMany("RefreshTokens")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.RolePermission", b =>
-                {
-                    b.HasOne("App.Domain.Entities.Permission", "Permission")
-                        .WithMany("RolePermissions")
-                        .HasForeignKey("PermissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("App.Domain.Entities.Role", "Role")
-                        .WithMany("RolePermissions")
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Permission");
-
-                    b.Navigation("Role");
-                });
-
             modelBuilder.Entity("App.Domain.Entities.ScoreTable", b =>
                 {
                     b.HasOne("App.Domain.Entities.Category", "SkillCategory")
@@ -2283,25 +2430,6 @@ namespace App.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.UserRole", b =>
-                {
-                    b.HasOne("App.Domain.Entities.Role", "Role")
-                        .WithMany("UserRoles")
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("App.Domain.Entities.User", "User")
-                        .WithMany("UserRoles")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Role");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("App.Domain.Entities.UserStatistics", b =>
                 {
                     b.HasOne("App.Domain.Entities.User", "User")
@@ -2313,32 +2441,38 @@ namespace App.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.UserVocabularyProgress", b =>
+            modelBuilder.Entity("App.Domain.Identity.PasswordResetToken", b =>
                 {
                     b.HasOne("App.Domain.Entities.User", "User")
-                        .WithMany()
+                        .WithMany("PasswordResetTokens")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("App.Domain.Entities.VocabularyWord", "Word")
-                        .WithMany("Progresses")
-                        .HasForeignKey("WordId")
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("App.Domain.Identity.RefreshToken", b =>
+                {
+                    b.HasOne("App.Domain.Entities.User", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("User");
-
-                    b.Navigation("Word");
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.VocabularyWord", b =>
+            modelBuilder.Entity("App.Domain.Domain.Training.PracticeAttempt", b =>
                 {
-                    b.HasOne("App.Domain.Entities.Category", "Category")
-                        .WithMany()
-                        .HasForeignKey("CategoryId");
+                    b.Navigation("Answers");
 
-                    b.Navigation("Category");
+                    b.Navigation("PartResults");
+                });
+
+            modelBuilder.Entity("App.Domain.Domain.Training.VocabularyWord", b =>
+                {
+                    b.Navigation("Progresses");
                 });
 
             modelBuilder.Entity("App.Domain.Entities.Category", b =>
@@ -2370,18 +2504,6 @@ namespace App.Infrastructure.Migrations
                     b.Navigation("ExamQuestions");
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.Permission", b =>
-                {
-                    b.Navigation("RolePermissions");
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.PracticeAttempt", b =>
-                {
-                    b.Navigation("Answers");
-
-                    b.Navigation("PartResults");
-                });
-
             modelBuilder.Entity("App.Domain.Entities.Question", b =>
                 {
                     b.Navigation("Answers");
@@ -2400,32 +2522,23 @@ namespace App.Infrastructure.Migrations
                     b.Navigation("Tags");
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.Role", b =>
-                {
-                    b.Navigation("RolePermissions");
-
-                    b.Navigation("UserRoles");
-                });
-
             modelBuilder.Entity("App.Domain.Entities.ScoreTable", b =>
                 {
                     b.Navigation("Entries");
                 });
 
-            modelBuilder.Entity("App.Domain.Entities.User", b =>
+            modelBuilder.Entity("App.Domain.Entities.Student", b =>
                 {
                     b.Navigation("ExamAttempts");
+                });
+
+            modelBuilder.Entity("App.Domain.Entities.User", b =>
+                {
+                    b.Navigation("PasswordResetTokens");
 
                     b.Navigation("RefreshTokens");
 
                     b.Navigation("StudentProfile");
-
-                    b.Navigation("UserRoles");
-                });
-
-            modelBuilder.Entity("App.Domain.Entities.VocabularyWord", b =>
-                {
-                    b.Navigation("Progresses");
                 });
 #pragma warning restore 612, 618
         }

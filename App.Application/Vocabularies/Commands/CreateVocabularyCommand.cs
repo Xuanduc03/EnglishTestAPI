@@ -1,5 +1,6 @@
 ﻿using App.Application.Interfaces;
 using App.Domain.Entities; // Giả định bạn chứa Entity ở đây
+using App.Domain.Domain.Training;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;

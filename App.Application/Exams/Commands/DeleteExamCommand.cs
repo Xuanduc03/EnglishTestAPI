@@ -70,8 +70,7 @@ namespace App.Application.Exams.Commands
             else
             {
                 // SOFT DELETE: Chỉ đánh dấu IsActive = false
-                exam.IsActive = false;
-                exam.Status = ExamStatus.Archived;
+                exam.ArchiveForDeletion();
                 exam.UpdatedAt = DateTime.UtcNow;
             }
 

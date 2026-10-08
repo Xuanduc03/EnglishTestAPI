@@ -292,7 +292,6 @@ namespace App.Application.Questions.Services
                 CategoryId = dto.CategoryId,
                 Content = dto.GroupContent,
                 Explanation = dto.Explanation,
-                IsActive = true,
                 CreatedAt = now
             });
 

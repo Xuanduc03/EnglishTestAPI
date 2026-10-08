@@ -14,6 +14,7 @@ namespace App.Application.ExamAttempts.Commands
         public Guid AttemptId { get; set; }
         public Guid UserId { get; set; }
         public bool IsAutoSubmit { get; set; } = false;
+        public string? GuestToken { get; set; }
     }
 
     public class SubmitExamCommandHandler : IRequestHandler<SubmitExamCommand, SubmitExamResult>
@@ -33,20 +34,19 @@ namespace App.Application.ExamAttempts.Commands
         {
             // ── 1. Load attempt ───────────────────────────────────────────────────────
             var attempt = await _context.ExamAttempts
+                .Include(a => a.Student)
                 .FirstOrDefaultAsync(a => a.Id == request.AttemptId, cancellationToken)
                 ?? throw new KeyNotFoundException($"Phiên thi {request.AttemptId} không tìm thấy");
 
             // ── 2. Auth check ─────────────────────────────────────────────────────────
-            if (!request.IsAutoSubmit && attempt.UserId != request.UserId)
-                throw new UnauthorizedAccessException("Không thể nộp bài của người dùng khác");
+            App.Application.ExamAttempts.GuestAttemptAccess.EnsureOwner(
+                attempt, request.UserId == Guid.Empty ? null : request.UserId, request.GuestToken);
 
             // ── 3. Validate trạng thái ────────────────────────────────────────────────
-            if (attempt.Status == ExamAttemptStatus.Submitted)
+            if (attempt.Status == ExamAttemptStatus.Submitted || attempt.Status == ExamAttemptStatus.TimedOut)
                 throw new InvalidOperationException("Bài thi đã được nộp rồi");
             if (attempt.Status == ExamAttemptStatus.Abandoned)
                 throw new InvalidOperationException("Bài thi đã bị hủy");
-            if (!request.IsAutoSubmit && attempt.ExpiresAt.HasValue && attempt.ExpiresAt < DateTime.UtcNow)
-                throw new InvalidOperationException("Thời gian làm bài đã hết");
 
             // ── 4. Load ExamAnswers ───────────────────────────────────────────────────
             var examAnswers = await _context.ExamAnswers
@@ -213,9 +213,8 @@ namespace App.Application.ExamAttempts.Commands
                 var maxScore = examAnswers.Sum(a => (double)a.ExamQuestions.Point);
 
                 // ── 14. Cập nhật Attempt ──────────────────────────────────────────────
-                attempt.Status = ExamAttemptStatus.Submitted;
-                attempt.SubmitedAt = now;
-                attempt.ActualTimeSeconds = (int)(now - attempt.StartedAt).TotalSeconds;
+                attempt.Submit(now, (int)(now - attempt.StartedAt).TotalSeconds,
+                    timedOut: attempt.ExpiresAt.HasValue && attempt.ExpiresAt.Value <= now);
                 attempt.ListeningCorrect = listeningCorrect;
                 attempt.ListeningScore = listeningScore;
                 attempt.ReadingCorrect = readingCorrect;
@@ -231,11 +230,12 @@ namespace App.Application.ExamAttempts.Commands
                 await transaction.CommitAsync(cancellationToken);
 
                 // ── 15. Cập nhật điểm & streak ───────────────────────────────────────
-                await _mediator.Send(new UpdatePointsAndStreakCommand(
-                    UserId: attempt.UserId,
-                    PointsEarned: 5,
-                    ActivityDate: DateTime.UtcNow
-                ), cancellationToken);
+                if (attempt.Student != null)
+                    await _mediator.Send(new UpdatePointsAndStreakCommand(
+                        UserId: attempt.Student.UserId,
+                        PointsEarned: 5,
+                        ActivityDate: DateTime.UtcNow
+                    ), cancellationToken);
 
                 return new SubmitExamResult
                 {

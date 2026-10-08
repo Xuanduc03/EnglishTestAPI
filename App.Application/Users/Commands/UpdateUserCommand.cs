@@ -1,182 +1,90 @@
-﻿using App.Application.DTOs;
-using App.Domain.Entities;
+using App.Application.DTOs;
 using App.Application.Interfaces;
+using App.Domain.Entities;
+using App.Domain.Identity;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using System.Net.Mail;
 using System.Text.RegularExpressions;
 
-namespace App.Application.Users.Commands
+namespace App.Application.Users.Commands;
+
+public record UpdateUserCommand(Guid UserId, UpdateUserDto User, Guid UpdatedBy) : IRequest<bool>;
+
+public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, bool>
 {
-    public record UpdateUserCommand(Guid UserId, UpdateUserDto User, Guid UpdatedBy) : IRequest<bool>;
+    private readonly IAppDbContext _dbContext;
 
-    public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, bool>
+    public UpdateUserCommandHandler(IAppDbContext dbContext) => _dbContext = dbContext;
+
+    public async Task<bool> Handle(UpdateUserCommand request, CancellationToken cancellationToken)
     {
-        private readonly IAppDbContext _dbContext;
-        private readonly ILogger<UpdateUserCommandHandler> _logger;
+        var dto = request.User;
+        if (dto.NewPassword != null && (string.IsNullOrWhiteSpace(dto.NewPassword) || dto.NewPassword.Length < 6))
+            throw new ArgumentException("Mật khẩu mới phải có ít nhất 6 ký tự", nameof(dto.NewPassword));
+        var user = await _dbContext.Users.Include(u => u.StudentProfile)
+            .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken)
+            ?? throw new KeyNotFoundException("Người dùng không tồn tại");
 
-        public UpdateUserCommandHandler(
-            IAppDbContext dbContext,
-            ILogger<UpdateUserCommandHandler> logger)
+        var email = dto.Email?.Trim().ToLowerInvariant() ?? user.Email;
+        if (!MailAddress.TryCreate(email, out var address) || address.Address != email)
+            throw new ArgumentException("Email không hợp lệ");
+        var fullName = dto.Fullname ?? user.FullName;
+        if (string.IsNullOrWhiteSpace(fullName) || fullName.Trim().Length > 100)
+            throw new ArgumentException("Họ tên không hợp lệ");
+        var phone = dto.Phone == null ? user.Phone : dto.Phone.Trim();
+        if (!string.IsNullOrWhiteSpace(phone) && !Regex.IsMatch(phone, @"^0\d{9,10}$"))
+            throw new ArgumentException("Số điện thoại không hợp lệ");
+
+        if (email != user.Email && await _dbContext.Users.IgnoreQueryFilters().AnyAsync(u => u.Id != user.Id && u.Email == email, cancellationToken))
+            throw new InvalidOperationException("Email đã được sử dụng");
+        if (phone != user.Phone && !string.IsNullOrWhiteSpace(phone)
+            && await _dbContext.Users.IgnoreQueryFilters().AnyAsync(u => u.Id != user.Id && u.Phone == phone, cancellationToken))
+            throw new InvalidOperationException("Số điện thoại đã được sử dụng");
+
+        var revokeTokens = (dto.Role.HasValue && dto.Role.Value != user.Role)
+            || dto.IsActive == false
+            || !string.IsNullOrWhiteSpace(dto.NewPassword);
+        var becomesStudent = dto.Role == UserRole.Student && user.Role != UserRole.Student;
+
+        user.UpdateProfile(email, fullName, phone);
+        if (user.StudentProfile != null) user.StudentProfile.Fullname = user.FullName;
+        if (dto.Role.HasValue) user.ChangeRole(dto.Role.Value);
+        if (becomesStudent && user.StudentProfile == null)
         {
-            _dbContext = dbContext;
-            _logger = logger;
-        }
-
-        public async Task<bool> Handle(UpdateUserCommand request, CancellationToken cancellationToken)
-        {
-            using var transaction = await _dbContext.BeginTransactionAsync(cancellationToken);
-
-            try
+            var existingProfile = await _dbContext.Students.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(s => s.UserId == user.Id, cancellationToken);
+            if (existingProfile == null)
             {
-                var dto = request.User;
-
-                // 1. Get user
-                var user = await _dbContext.Users
-                    .Include(u => u.UserRoles)
-                    .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
-
-                if (user == null)
-                    throw new KeyNotFoundException("Người dùng không tồn tại");
-
-                // 2. Validate
-                ValidateUserInput(dto);
-
-                // 3. Check email duplicate
-                if (!string.IsNullOrWhiteSpace(dto.Email) &&
-                    dto.Email.ToLower() != user.Email.ToLower())
-                {
-                    var emailExists = await _dbContext.Users
-                        .AnyAsync(u => u.Email.ToLower() == dto.Email.ToLower()
-                                       && u.Id != request.UserId,
-                            cancellationToken);
-
-                    if (emailExists)
-                        throw new InvalidOperationException("Email đã được sử dụng");
-                }
-
-                // 4. Check phone duplicate
-                if (!string.IsNullOrWhiteSpace(dto.Phone) && dto.Phone != user.Phone)
-                {
-                    var phoneExists = await _dbContext.Users
-                        .AnyAsync(u => u.Phone == dto.Phone
-                                       && u.Id != request.UserId,
-                            cancellationToken);
-
-                    if (phoneExists)
-                        throw new InvalidOperationException("Số điện thoại đã được sử dụng");
-                }
-
-                // 5. Update fields
-                if (!string.IsNullOrWhiteSpace(dto.Email))
-                    user.Email = dto.Email.ToLower().Trim();
-
-                if (!string.IsNullOrWhiteSpace(dto.Fullname))
-                    user.Fullname = dto.Fullname.Trim();
-
-                if (dto.Phone != null)
-                    user.Phone = string.IsNullOrWhiteSpace(dto.Phone) ? null : dto.Phone.Trim();
-
-                if (dto.IsActive.HasValue)
-                    user.IsActive = dto.IsActive.Value;
-
-                // 6. Update password
-                if (!string.IsNullOrWhiteSpace(dto.NewPassword))
-                {
-                    user.Password = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
-
-                    var activeTokens = await _dbContext.RefreshTokens
-                        .Where(rt => rt.UserId == request.UserId && rt.RevokedAt == null)
-                        .ToListAsync(cancellationToken);
-
-                    foreach (var token in activeTokens)
-                    {
-                        token.RevokedAt = DateTime.UtcNow;
-                    }
-                }
-
-                // 7. Update role
-                if (dto.RoleId != null)
-                {
-                    var role = await _dbContext.Roles
-                        .FirstOrDefaultAsync(r => r.Id == dto.RoleId, cancellationToken);
-
-                    if (role == null)
-                        throw new InvalidOperationException("Role không tồn tại");
-
-                    // Remove old
-                    if (user.UserRoles.Any())
-                        _dbContext.UserRoles.RemoveRange(user.UserRoles);
-
-                    // Add new
-                    var newRole = new UserRole
-                    {
-                        Id = Guid.NewGuid(),
-                        UserId = user.Id,
-                        RoleId = dto.RoleId,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow,
-                        CreatedBy = request.UpdatedBy,
-                        AssignedBy = request.UpdatedBy
-                    };
-
-                    _dbContext.UserRoles.Add(newRole);
-                }
-
-                user.UpdatedAt = DateTime.UtcNow;
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
-                await transaction.CommitAsync(cancellationToken);
-
-                return true;
+                user.StudentProfile = new Student { UserId = user.Id, Fullname = user.FullName };
             }
-            catch
+            else
             {
-                await transaction.RollbackAsync(cancellationToken);
-                throw;
+                existingProfile.IsDeleted = false;
+                existingProfile.DeletedAt = null;
+                existingProfile.DeletedBy = null;
+                existingProfile.IsActive = true;
+                existingProfile.Fullname = user.FullName;
+                user.StudentProfile = existingProfile;
             }
         }
-        private void ValidateUserInput(UpdateUserDto dto)
+        if (dto.IsActive.HasValue)
         {
-            var errors = new List<string>();
-
-            // Email validation (nếu có)
-            if (!string.IsNullOrWhiteSpace(dto.Email) && !IsValidEmail(dto.Email))
-                errors.Add("Email không hợp lệ");
-
-            // Username validation (nếu có)
-            if (string.IsNullOrWhiteSpace(dto.Fullname))
-            {
-                errors.Add("Fullname không được để trống");
-            }
-
-            // Phone validation (nếu có)
-            if (!string.IsNullOrWhiteSpace(dto.Phone) && !IsValidPhone(dto.Phone))
-                errors.Add("Số điện thoại không hợp lệ");
-
-            // Fullname validation (nếu có)
-            if (!string.IsNullOrWhiteSpace(dto.Fullname) && dto.Fullname.Length > 100)
-                errors.Add("Họ tên không được vượt quá 100 ký tự");
-
-            if (errors.Any())
-                throw new ArgumentException(string.Join("; ", errors));
+            if (dto.IsActive.Value) user.Reactivate();
+            else user.Deactivate();
         }
-
-        private bool IsValidEmail(string email)
+        if (!string.IsNullOrWhiteSpace(dto.NewPassword))
         {
-            try
-            {
-                var addr = new System.Net.Mail.MailAddress(email);
-                return addr.Address == email;
-            }
-            catch
-            {
-                return false;
-            }
+            user.ChangePasswordHash(BCrypt.Net.BCrypt.HashPassword(dto.NewPassword));
         }
-        private bool IsValidPhone(string phone)
+        if (revokeTokens)
         {
-            return Regex.IsMatch(phone, @"^0\d{9,10}$");
+            var activeTokens = await _dbContext.RefreshTokens
+                .Where(t => t.UserId == user.Id && t.RevokedAt == null).ToListAsync(cancellationToken);
+            foreach (var token in activeTokens) token.Revoke(DateTime.UtcNow);
         }
+        user.UpdatedBy = request.UpdatedBy;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
     }
 }

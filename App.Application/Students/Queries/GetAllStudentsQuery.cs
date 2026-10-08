@@ -29,29 +29,43 @@ namespace App.Application.Queries
             try
             {
                 var query = _context.Students
-                    .Include(s => s.User)
-                    .Where(s => s.IsActive == false)
+                    .AsNoTracking()
+                    .Where(s => s.IsActive && s.User.IsActive)
                     .AsQueryable();
 
                 // Apply filters
-                if (!string.IsNullOrEmpty(request.Search))
+                if (!string.IsNullOrWhiteSpace(request.Search))
                 {
+                    var search = request.Search.Trim();
                     query = query.Where(s =>
-                        s.Fullname.Contains(request.Search) ||
-                        s.SBD.Contains(request.Search) ||
-                        s.CCCD.Contains(request.Search) ||
-                        s.User.Email.Contains(request.Search));
+                        s.Fullname.Contains(search) ||
+                        (s.SBD != null && s.SBD.Contains(search)) ||
+                        (s.CCCD != null && s.CCCD.Contains(search)) ||
+                        s.User.Email.Contains(search));
                 }
 
-                if (!string.IsNullOrEmpty(request.Gender))
+                if (!string.IsNullOrWhiteSpace(request.Gender))
                 {
-                    query = query.Where(s => s.Gender == request.Gender);
+                    if (!Enum.TryParse<Gender>(request.Gender, true, out var gender) || !Enum.IsDefined(gender))
+                        throw new ArgumentException("Giới tính không hợp lệ", nameof(request.Gender));
+                    query = query.Where(s => s.Gender == gender);
                 }
 
                
 
                 var students = await query
                     .OrderBy(s => s.Fullname)
+                    .Select(s => new
+                    {
+                        s.Id,
+                        s.Fullname,
+                        s.CCCD,
+                        s.Gender,
+                        s.DateOfBirth,
+                        s.SBD,
+                        s.User.Email,
+                        s.User.Phone
+                    })
                     .ToListAsync(cancellationToken);
 
                 var studentDtos = students.Select(s => new StudentListDto
@@ -59,18 +73,18 @@ namespace App.Application.Queries
                     Id = s.Id,
                     Fullname = s.Fullname,
                     CCCD = s.CCCD,
-                    Gender = s.Gender,
+                    Gender = s.Gender?.ToString(),
                     DateOfBirth = s.DateOfBirth,
                     SBD = s.SBD,
-                    Email = s.User?.Email,
-                    Phone = s.User?.Phone,
+                    Email = s.Email,
+                    Phone = s.Phone,
                  }).ToList();
 
                 return studentDtos;
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error retrieving students: {ex.Message}", ex);
+                throw;
             }
         }
     }

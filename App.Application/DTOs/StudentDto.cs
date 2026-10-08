@@ -16,7 +16,7 @@ namespace App.Application.DTO
         public string Fullname { get; set; }
         public string? CCCD { get; set; }
         public string? Gender { get; set; }
-        public DateTime DateOfBirth { get; set; }
+        public DateTime? DateOfBirth { get; set; }
         public string? SBD { get; set; }
         public string? School { get; set; }
         public DateTime? CreatedAt { get; set; }
@@ -39,7 +39,7 @@ namespace App.Application.DTO
         public string Fullname { get; set; }
         public string? CCCD { get; set; }
         public string? Gender { get; set; }
-        public DateTime DateOfBirth { get; set; }
+        public DateTime? DateOfBirth { get; set; }
         public string? SBD { get; set; }
         public string? School { get; set; }
         public Guid UserId { get; set; }
@@ -56,7 +56,7 @@ namespace App.Application.DTO
         public string Fullname { get; set; }
         public string? CCCD { get; set; }
         public string? Gender { get; set; }
-        public DateTime DateOfBirth { get; set; }
+        public DateTime? DateOfBirth { get; set; }
         public string? SBD { get; set; }
         public string? School { get; set; }
         public Guid UpdatedBy { get; set; }
@@ -79,7 +79,7 @@ namespace App.Application.DTO
 
     public class StudentDetailDto : StudentDto
     {
-        public UserDto User { get; set; }
+        public UserDto? User { get; set; }
     }
 
     // UserProfileDto.cs

@@ -1,12 +1,12 @@
 ﻿using App.Application.Auth.Commands;
 using App.Application.Auth.Queries;
 using App.Application.DTOs;
+using App.Application.Services.Interface;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 
 namespace App.Api.Controllers
 {
@@ -15,10 +15,12 @@ namespace App.Api.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IMediator _mediator;
+        private readonly ICurrentUserService _currentUser;
 
-        public AuthController(IMediator mediator)
+        public AuthController(IMediator mediator, ICurrentUserService currentUser)
         {
             _mediator = mediator;
+            _currentUser = currentUser;
         }
 
         [HttpPost("register")]
@@ -107,10 +109,7 @@ namespace App.Api.Controllers
         {
 
             // Lấy userId từ token
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                ?? User.FindFirst("sub")?.Value;
-
-            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            if (_currentUser.UserId is not Guid userId)
             {
                 return Unauthorized(new
                 {

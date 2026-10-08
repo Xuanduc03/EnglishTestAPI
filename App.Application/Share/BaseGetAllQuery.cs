@@ -72,10 +72,10 @@ namespace App.Application.Share
 
             // 2. Xử lý Xóa mềm (Thay thế đoạn Reflection của sếp bạn)
             // Nếu TEntity có kế thừa ISoftDelete -> Tự động lọc bản ghi chưa xóa
-            if (typeof(ISoftDelete).IsAssignableFrom(typeof(TEntity)))
+            if (ApplySoftDeleteFilter(request) && typeof(ISoftDelete).IsAssignableFrom(typeof(TEntity)))
             {
                 // Ép kiểu về ISoftDelete để lọc
-                query = query.Where(e => ((ISoftDelete)e).IsDeleted == false);
+                query = query.Where(e => !EF.Property<bool>(e, nameof(ISoftDelete.IsDeleted)));
             }
 
             // 3. Gọi hàm ảo để lớp con chèn logic Filter riêng (QUAN TRỌNG)
@@ -99,6 +99,8 @@ namespace App.Application.Share
         }
 
         protected abstract IQueryable<TEntity> BuildQuery(IQueryable<TEntity> query, TRequest request);
+
+        protected virtual bool ApplySoftDeleteFilter(TRequest request) => true;
 
         // Hàm sắp xếp chung (Có thể dùng luôn, không cần sửa)
         protected virtual IQueryable<TEntity> ApplySorting(IQueryable<TEntity> query, Dictionary<string, string>? sort)

@@ -20,6 +20,7 @@ namespace App.Application.Exams.Commands
 
         // 👇 THÊM TRƯỜNG NÀY ĐỂ HỨNG DATA "status: 0" TỪ FRONTEND
         public ExamStatus? Status { get; set; }
+        public string? Reason { get; set; }
     }
 
     public class UpdateExamHandler : IRequestHandler<UpdateExamCommand, bool>
@@ -47,6 +48,9 @@ namespace App.Application.Exams.Commands
             if (!exam.IsActive)
                 throw new Exception("Đề thi đã bị xóa");
 
+            bool contentModified = false;
+            bool statusChanged = false;
+
             // === CHECK DUPLICATE CODE ===
             if (!string.IsNullOrWhiteSpace(request.Code) && request.Code != exam.Code)
             {
@@ -57,9 +61,8 @@ namespace App.Application.Exams.Commands
                     throw new ValidationException($"Mã đề thi '{request.Code}' đã tồn tại");
 
                 exam.Code = request.Code;
+                contentModified = true;
             }
-
-            bool isModified = false;
 
             // === UPDATE FIELDS (Chỉ update field không null) ===
             if (!string.IsNullOrWhiteSpace(request.Title) && request.Title != exam.Title)
@@ -67,13 +70,13 @@ namespace App.Application.Exams.Commands
                 if (request.Title.Length > 200)
                     throw new ValidationException("Tên đề thi tối đa 200 ký tự");
                 exam.Title = request.Title;
-                isModified = true;
+                contentModified = true;
             }
 
             if (request.Description != null && request.Description != exam.Description)
             {
                 exam.Description = request.Description;
-                isModified = true;
+                contentModified = true;
             }
 
             if (request.Duration.HasValue && request.Duration.Value != exam.Duration)
@@ -83,39 +86,42 @@ namespace App.Application.Exams.Commands
                 if (request.Duration.Value > 300)
                     throw new ValidationException("Thời gian thi tối đa 300 phút");
                 exam.Duration = request.Duration.Value;
-                isModified = true;
+                contentModified = true;
             }
 
             if (request.Type.HasValue && request.Type.Value != exam.Type)
             {
                 exam.Type = request.Type.Value;
-                isModified = true;
+                contentModified = true;
             }
 
             if (request.ShuffleQuestions.HasValue && request.ShuffleQuestions.Value != exam.ShuffleQuestions)
             {
                 exam.ShuffleQuestions = request.ShuffleQuestions.Value;
-                isModified = true;
+                contentModified = true;
             }
 
             if (request.ShuffleAnswers.HasValue && request.ShuffleAnswers.Value != exam.ShuffleAnswers)
             {
                 exam.ShuffleAnswers = request.ShuffleAnswers.Value;
-                isModified = true;
+                contentModified = true;
             }
 
             if (request.Status.HasValue && request.Status.Value != exam.Status)
             {
-                exam.Status = request.Status.Value;
-                isModified = true;
+                exam.ChangeStatus(request.Status.Value, request.Reason);
+                statusChanged = true;
             }
 
-            if (isModified || (request.Code != null && request.Code != exam.Code))
+            if (contentModified)
             {
-                // Update version để rack changes
-                exam.Version++;
+                exam.MarkContentChanged();
                 exam.UpdatedAt = DateTime.UtcNow;
+            }
 
+            if (contentModified || statusChanged)
+            {
+                exam.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync(cancellationToken);
             }
 

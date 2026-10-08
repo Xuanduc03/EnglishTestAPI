@@ -31,6 +31,7 @@ namespace App.Application.Users.Commands
             {
                 // 1. Get deleted user
                 var user = await _dbContext.Users
+                    .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
 
                 if (user == null)
@@ -38,8 +39,14 @@ namespace App.Application.Users.Commands
                     throw new KeyNotFoundException("Người dùng không tồn tại hoặc chưa bị xóa");
                 }
 
+                if (user.IsActive && !user.IsDeleted)
+                    throw new InvalidOperationException("Tài khoản đang hoạt động");
+
                 // 2. Restore user
-                user.IsActive = true; // Kích hoạt lại account
+                user.Reactivate();
+                user.IsDeleted = false;
+                user.DeletedAt = null;
+                user.DeletedBy = null;
                 user.UpdatedAt = DateTime.UtcNow;
                 user.UpdatedBy = request.RestoredBy;
 
@@ -50,10 +57,6 @@ namespace App.Application.Users.Commands
             catch (KeyNotFoundException)
             {
                 throw;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Có lỗi xảy ra khi khôi phục người dùng");
             }
         }
     }

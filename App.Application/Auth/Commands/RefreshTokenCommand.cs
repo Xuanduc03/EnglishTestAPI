@@ -1,121 +1,90 @@
-﻿using App.Domain.Entities;
 using App.Application.Interfaces;
+using App.Domain.Identity;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using System;
-using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace App.Application.Auth.Commands
+namespace App.Application.Auth.Commands;
+
+public class RefreshTokenResultDto
 {
-    public class RefreshTokenResultDto
+    public string accessToken { get; set; } = default!;
+    public string refreshToken { get; set; } = default!;
+    public DateTime expiredAt { get; set; }
+}
+
+public record RefreshTokenCommand(string refreshToken) : IRequest<RefreshTokenResultDto>;
+
+public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, RefreshTokenResultDto>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly IConfiguration _config;
+
+    public RefreshTokenCommandHandler(IAppDbContext dbContext, IConfiguration config)
     {
-        public string accessToken { get; set;}
-        public string refreshToken { get; set;}
-        public DateTime expiredAt { get; set;}
+        _dbContext = dbContext;
+        _config = config;
     }
-    public record RefreshTokenCommand(string refreshToken) : IRequest<RefreshTokenResultDto>;
-    public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, RefreshTokenResultDto>
+
+    public async Task<RefreshTokenResultDto> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
-        private readonly IAppDbContext _dbContext;
-        private readonly IConfiguration _config;
+        if (string.IsNullOrWhiteSpace(request.refreshToken))
+            throw new UnauthorizedAccessException("Refresh token không hợp lệ");
 
-        // token expiry
-        private const int TOKEN_EXPIRY_HOURS = 1;
-        private const int REFRESH_TOKEN_DAYS = 7;
+        var hash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(request.refreshToken)));
+        var oldToken = await _dbContext.RefreshTokens
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.TokenHash == hash, cancellationToken);
+        if (oldToken == null || !oldToken.IsActive || !oldToken.User.IsActive)
+            throw new UnauthorizedAccessException("Refresh token không hợp lệ hoặc đã hết hạn");
 
-        public RefreshTokenCommandHandler(IAppDbContext dbContext, IConfiguration config)
+        var jwtKey = _config["Jwt:Key"];
+        if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+            throw new InvalidOperationException("Jwt ít nhất 32 ký tự");
+
+        var user = oldToken.User;
+        var now = DateTime.UtcNow;
+        var accessExpiry = now.AddHours(1);
+        var claims = new[]
         {
-            _dbContext = dbContext;
-            _config = config;
-        }
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim(ClaimTypes.Name, user.FullName),
+            new Claim(ClaimTypes.Role, user.Role.ToString())
+        };
+        var token = new JwtSecurityToken(
+            issuer: _config["Jwt:Issuer"],
+            audience: _config["Jwt:Audience"],
+            claims: claims,
+            expires: accessExpiry,
+            signingCredentials: new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)), SecurityAlgorithms.HmacSha256));
+        var nextToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        var nextHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(nextToken)));
 
-        public async Task<RefreshTokenResultDto> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
+        await using var transaction = await _dbContext.BeginTransactionAsync(cancellationToken);
+        oldToken.Revoke(now);
+        oldToken.ReplacedByTokenHash = nextHash;
+        _dbContext.RefreshTokens.Add(new RefreshToken
         {
-            var existingRefreshToken = await _dbContext.RefreshTokens
-                 .Include(rt => rt.User)
-                 .FirstOrDefaultAsync(rt => rt.Token == request.refreshToken, cancellationToken);
+            UserId = user.Id,
+            TokenHash = nextHash,
+            ExpiresAt = now.AddDays(7)
+        });
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
-           // 2. validate 
-           if(existingRefreshToken == null)
-            {
-                throw new UnauthorizedAccessException("Refresh token không hợp lệ");
-            }
-
-           if(existingRefreshToken.ExpiredAt < DateTime.UtcNow) { 
-                // token hết hạn -> bắt đăng nhập lại -> xóa token rác
-                _dbContext.RefreshTokens.Remove(existingRefreshToken);
-                await _dbContext.SaveChangesAsync();
-                throw new UnauthorizedAccessException("Token hết hạn vui lòng đăng nhập lại");
-            }
-
-            var user = existingRefreshToken.User;
-            if (user == null) throw new UnauthorizedAccessException("Người dùng không tồn tại.");
-
-            // 3. Generate New Access Token
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]);
-
-            var claims = new List<Claim>
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.Name, user.Fullname)
-            };
-
-            var roles = await _dbContext.UserRoles
-                .Where(ur => ur.UserId == user.Id)
-                .Select(ur => ur.Role.Name)
-                .ToListAsync(cancellationToken);
-
-            claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
-
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddHours(TOKEN_EXPIRY_HOURS),
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature),
-                Audience = _config["Jwt:Audience"],
-                Issuer = _config["Jwt:Issuer"]
-            };
-
-            var newAccessToken = tokenHandler.WriteToken(tokenHandler.CreateToken(tokenDescriptor));
-
-            // 4. Rotate Refresh Token (Quan trọng)
-            // Cách 1: Xóa cũ, tạo mới (Đơn giản nhất, tránh rác DB)
-            _dbContext.RefreshTokens.Remove(existingRefreshToken);
-
-            // Tạo chuỗi ngẫu nhiên
-            var newRefreshTokenString = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
-
-            var newRefreshTokenEntity = new RefreshToken
-            {
-                Id = Guid.NewGuid(),
-                Token = newRefreshTokenString,
-                UserId = user.Id,
-                CreatedAt = DateTime.UtcNow,
-                ExpiredAt = DateTime.UtcNow.AddDays(REFRESH_TOKEN_DAYS),
-                // IsRevoked = false
-            };
-
-            _dbContext.RefreshTokens.Add(newRefreshTokenEntity);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-
-            // 5. Return
-            return new RefreshTokenResultDto
-            {
-                accessToken = newAccessToken,
-                refreshToken = newRefreshTokenString,
-                expiredAt = DateTime.UtcNow.AddHours(TOKEN_EXPIRY_HOURS) // Trả về exp của AccessToken để FE biết
-            };
-        }
+        return new RefreshTokenResultDto
+        {
+            accessToken = new JwtSecurityTokenHandler().WriteToken(token),
+            refreshToken = nextToken,
+            expiredAt = accessExpiry
+        };
     }
 }

@@ -36,11 +36,14 @@ namespace App.Application.Exams.Queries
         public async Task<List<ExamSummaryDto>> Handle(GetFullTestsQuery request, CancellationToken cancellationToken)
         {
             // 1. Lấy danh sách exam thỏa mãn điều kiện và LỌC THEO TYPE (nếu có)
+            var now = DateTime.UtcNow;
             var query = _context.Exams
                 .Where(x => !x.IsDeleted
                     && x.Category == ExamCategory.FullTest
                     && x.Status == ExamStatus.Published
-                    && x.IsActive);
+                    && x.IsActive
+                    && (!x.StartDate.HasValue || x.StartDate <= now)
+                    && (!x.EndDate.HasValue || x.EndDate >= now));
 
             // NẾU FE CÓ TRUYỀN LÊN ExamType (VD: Type = ExamType.IELTS) THÌ LỌC TIẾP
             if (request.Type.HasValue)

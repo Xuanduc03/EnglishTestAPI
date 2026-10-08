@@ -14,6 +14,7 @@ namespace App.Application.ExamAttempts.Commands.IELTS
         [Required] public Guid AttemptId { get; set; }
         [Required] public Guid UserId { get; set; }
         public bool IsAutoSubmit { get; set; } = false;
+        public string? GuestToken { get; set; }
     }
 
     public class IeltsSubmitExamResult
@@ -58,17 +59,16 @@ namespace App.Application.ExamAttempts.Commands.IELTS
         public async Task<IeltsSubmitExamResult> Handle(IeltsSubmitExamCommand request, CancellationToken ct)
         {
             var attempt = await _context.ExamAttempts
+                .Include(a => a.Student)
                 .FirstOrDefaultAsync(a => a.Id == request.AttemptId, ct)
                 ?? throw new KeyNotFoundException($"Không tìm thấy phiên thi {request.AttemptId}");
 
-            if (!request.IsAutoSubmit && attempt.UserId != request.UserId)
-                throw new UnauthorizedAccessException("Không thể nộp bài của người dùng khác");
-            if (attempt.Status == ExamAttemptStatus.Submitted)
+            App.Application.ExamAttempts.GuestAttemptAccess.EnsureOwner(
+                attempt, request.UserId == Guid.Empty ? null : request.UserId, request.GuestToken);
+            if (attempt.Status == ExamAttemptStatus.Submitted || attempt.Status == ExamAttemptStatus.TimedOut)
                 throw new InvalidOperationException("Bài thi đã nộp rồi");
             if (attempt.Status == ExamAttemptStatus.Abandoned)
                 throw new InvalidOperationException("Bài thi đã bị hủy");
-            if (!request.IsAutoSubmit && attempt.ExpiresAt.HasValue && attempt.ExpiresAt < DateTime.UtcNow)
-                throw new InvalidOperationException("Thời gian làm bài đã hết");
 
             var examAnswers = await _context.ExamAnswers
                 .Where(a => a.ExamAttemptId == request.AttemptId)
@@ -138,9 +138,8 @@ namespace App.Application.ExamAttempts.Commands.IELTS
                 var skipped = examAnswers.Count(a => !a.IsAnswered);
                 var wrong = examAnswers.Count(a => a.IsAnswered && !a.IsCorrect);
 
-                attempt.Status = ExamAttemptStatus.Submitted;
-                attempt.SubmitedAt = now;
-                attempt.ActualTimeSeconds = (int)(now - attempt.StartedAt).TotalSeconds;
+                attempt.Submit(now, (int)(now - attempt.StartedAt).TotalSeconds,
+                    timedOut: attempt.ExpiresAt.HasValue && attempt.ExpiresAt.Value <= now);
                 attempt.ListeningCorrect = listeningCorrect;
                 attempt.ListeningScore = (int)(listeningBand * 10);
                 attempt.ReadingCorrect = readingCorrect;
@@ -155,11 +154,12 @@ namespace App.Application.ExamAttempts.Commands.IELTS
                 await _context.SaveChangesAsync(ct);
                 await tx.CommitAsync(ct);
 
-                await _mediator.Send(new UpdatePointsAndStreakCommand(
-                     UserId: attempt.UserId,
-                     PointsEarned: 5,   // Full test được +5 điểm
-                     ActivityDate: DateTime.UtcNow
-                 ), ct);
+                if (attempt.Student != null)
+                    await _mediator.Send(new UpdatePointsAndStreakCommand(
+                        UserId: attempt.Student.UserId,
+                        PointsEarned: 5,
+                        ActivityDate: DateTime.UtcNow
+                    ), ct);
 
                 return new IeltsSubmitExamResult
                 {

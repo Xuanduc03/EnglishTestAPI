@@ -41,10 +41,7 @@ namespace App.Application.Exams.Commands
                 ?? throw new KeyNotFoundException("Đề thi không tồn tại hoặc đã bị xóa");
 
             // === VALIDATE TRANSITION HỢP LỆ ===
-            ValidateTransition(exam.Status, request.NewStatus, request.Reason);
-
-            exam.Status = request.NewStatus;
-            exam.Version++;
+            exam.ChangeStatus(request.NewStatus, request.Reason);
             exam.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -64,35 +61,5 @@ namespace App.Application.Exams.Commands
         ///  Suspended ──────────────→ Archived
         ///  Archived ───────────────→ Draft        (restore)
         /// </summary>
-        private static readonly Dictionary<ExamStatus, ExamStatus[]> AllowedTransitions = new()
-        {
-            [ExamStatus.Draft] = new[] { ExamStatus.PendingReview, ExamStatus.Published },
-            [ExamStatus.PendingReview] = new[] { ExamStatus.Draft, ExamStatus.Published },
-            [ExamStatus.Published] = new[] { ExamStatus.Suspended, ExamStatus.Archived },
-            [ExamStatus.Suspended] = new[] { ExamStatus.Published, ExamStatus.Archived },
-            [ExamStatus.Archived] = new[] { ExamStatus.Draft },
-        };
-
-        private static void ValidateTransition(
-            ExamStatus current,
-            ExamStatus next,
-            string? reason)
-        {
-            if (!AllowedTransitions.TryGetValue(current, out var allowed) ||
-                !allowed.Contains(next))
-            {
-                throw new InvalidOperationException(
-                    $"Không thể chuyển từ '{current}' sang '{next}'. " +
-                    $"Cho phép: {string.Join(", ", AllowedTransitions[current])}");
-            }
-
-            // Bắt buộc nhập lý do khi Suspend / Archive
-            if (next is ExamStatus.Suspended or ExamStatus.Archived
-                && string.IsNullOrWhiteSpace(reason))
-            {
-                throw new ValidationException(
-                    $"Vui lòng nhập lý do khi chuyển sang trạng thái '{next}'");
-            }
-        }
     }
 }

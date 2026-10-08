@@ -25,35 +25,22 @@ namespace App.Application.Users.Queries
             {
                 var user = await _dbContext.Users
                     .AsNoTracking()
-                    .Include(u => u.UserRoles)
-                        .ThenInclude(ur => ur.Role)
-                            .ThenInclude(r => r.RolePermissions)
-                                .ThenInclude(rp => rp.Permission)
+                    .IgnoreQueryFilters()
                     .Where(u => u.Id == request.UserId)
                     .Select(u => new UserDetailDto
                     {
                         Id = u.Id,
                         Email = u.Email,
-                        Fullname = u.Fullname,
+                        Fullname = u.FullName,
                         Phone = u.Phone,
                         IsActive = u.IsActive,
+                        IsDeleted = u.IsDeleted,
                         FailedLoginAttempts = u.FailedLoginAttempts,
                         LockoutEnd = u.LockoutEnd,
-                        LastLogin = u.LastLogin,
+                        LastLogin = u.LastLoginAt,
+                        Role = u.Role,
                         CreatedAt = u.CreatedAt,
                         UpdatedAt = u.UpdatedAt,
-                        Roles = u.UserRoles.Select(ur => new RoleDetailDto
-                        {
-                            Id = ur.Role.Id,
-                            Name = ur.Role.Name,
-                            Description = ur.Role.Description,
-                            AssignedAt = ur.AssignedAt
-                        }).ToList(),
-                        Permissions = u.UserRoles
-                            .SelectMany(ur => ur.Role.RolePermissions)
-                            .Select(rp => rp.Permission.Name)
-                            .Distinct()
-                            .ToList()
                     })
                     .FirstOrDefaultAsync(cancellationToken);
 

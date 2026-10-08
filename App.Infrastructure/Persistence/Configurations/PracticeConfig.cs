@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using static Dapper.SqlMapper;
+using App.Domain.Domain.Training;
 
 namespace App.Infrastructure.Persistence.Configurations
 {

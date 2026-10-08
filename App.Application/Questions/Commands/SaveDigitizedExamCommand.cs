@@ -48,6 +48,11 @@ namespace App.Application.Questions.Commands
 
             var now = DateTime.UtcNow;
             var data = request.ExtractedData;
+            foreach (var question in data.Questions)
+            {
+                if (!Enum.IsDefined(typeof(QuestionTypeEnum), question.QuestionType))
+                    throw new ValidationException($"Loại câu hỏi không hợp lệ: {question.QuestionType}");
+            }
             var isPart5 = data.PartNumber == 5;
             var groupId = isPart5 ? Guid.Empty : Guid.NewGuid();
 
@@ -63,7 +68,6 @@ namespace App.Application.Questions.Commands
                 Content = data.PassageContent,
                 Transcript = data.SectionTitle,
                 DifficultyId = request.DifficultyId,
-                IsActive = true,
                 CreatedAt = now,
                 UpdatedAt = now,
             };
@@ -226,7 +230,8 @@ namespace App.Application.Questions.Commands
 
         // ── Type helper ────────────────────────────────────────────
         private static bool IsCompletionType(QuestionTypeEnum t) =>
-            t is QuestionTypeEnum.ShortAnswer
+            t is QuestionTypeEnum.FillBlank
+              or QuestionTypeEnum.ShortAnswer
               or QuestionTypeEnum.NoteCompletion
               or QuestionTypeEnum.FormCompletion
               or QuestionTypeEnum.TableCompletion

@@ -2,6 +2,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -39,9 +40,10 @@ namespace App.Application.Auth.Commands
                 }
 
                 // 2. Tìm và revoke refresh token của user
+                var tokenHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(request.RefreshToken)));
                 var refreshToken = await _dbContext.RefreshTokens
                     .FirstOrDefaultAsync(
-                        rt => rt.Token == request.RefreshToken
+                        rt => rt.TokenHash == tokenHash
                            && rt.UserId == request.UserId
                            && rt.RevokedAt == null,
                         cancellation);
@@ -54,7 +56,7 @@ namespace App.Application.Auth.Commands
                 }
 
                 // 3. Revoke refresh token
-                refreshToken.RevokedAt = DateTime.UtcNow;
+                refreshToken.Revoke(DateTime.UtcNow);
                 await _dbContext.SaveChangesAsync(cancellation);
 
                 _logger.LogInformation("User {UserId} logged out successfully", request.UserId);

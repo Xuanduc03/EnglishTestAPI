@@ -1,49 +1,55 @@
-﻿using App.Domain.Entities;
+﻿using App.Domain.Domain.Logging;
+using App.Domain.Domain.Training;
+using App.Domain.Entities;
+using App.Domain.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace App.Application.Interfaces
 {
     public interface IAppDbContext : IBaseDbContext
     {
-        public DbSet<User> Users { get; set; }
-        public DbSet<Role> Roles { get; set; }
-        public DbSet<Category> Categories { get; set; }
-        public DbSet<UserRole> UserRoles { get; set; }
-        public DbSet<RefreshToken> RefreshTokens { get; set; }
-        public DbSet<Permission> Permissions { get; set; }
-        public DbSet<RolePermission> RolePermissions { get; set; }
-        public DbSet<Student> Students { get; set; }
+        DbSet<User> Users { get; }
+        DbSet<RefreshToken> RefreshTokens { get; }
+        DbSet<PasswordResetToken> PasswordResetTokens { get; }
+        DbSet<Category> Categories { get; }
+        DbSet<Student> Students { get; }
 
-        // --- KHỐI EXAM  ---
-        public DbSet<Exam> Exams { get; set; }
-        public DbSet<ExamSection> ExamSections { get; set; }
-        public DbSet<ExamQuestion> ExamQuestions { get; set; }
-        public DbSet<ScoreTable> ScoreTables { get; set; }
+        // --- KHỐI EXAM ---
+        DbSet<Exam> Exams { get; }
+        DbSet<ExamSection> ExamSections { get; }
+        DbSet<ExamQuestion> ExamQuestions { get; }
+        DbSet<ScoreTable> ScoreTables { get; }
+        DbSet<ScoreTableEntry> ScoreTableEntries { get; }
 
-        // --- KHỐI QUESTION BANK  ---
-        public DbSet<Question> Questions { get; set; }
-        public DbSet<QuestionGroup> QuestionGroups { get; set; }
-        public DbSet<Answer> Answers { get; set; }
-        public DbSet<QuestionGroupMedia> QuestionGroupMedia { get; set; }
-        public DbSet<QuestionMedia> QuestionMedias { get; set; }
-        public DbSet<QuestionTag> QuestionTags { get; set; }
+        // --- KHỐI QUESTION BANK ---
+        DbSet<Question> Questions { get; }
+        DbSet<QuestionGroup> QuestionGroups { get; }
+        DbSet<Answer> Answers { get; }
+        DbSet<QuestionMedia> QuestionMedias { get; }
+        DbSet<QuestionGroupMedia> QuestionGroupMedia { get; }
+        DbSet<QuestionTag> QuestionTags { get; }
 
         // --- KHỐI KẾT QUẢ ---
-        public DbSet<ExamResult> ExamResults { get; set; }
-        public DbSet<ExamSectionResult> ExamSectionResults { get; set; }
-        /// <summary>
-        ///  Khối thi của user
-        /// </summary>
-        public DbSet<ExamAttempt> ExamAttempts { get; set; }
-        public DbSet<ExamAnswer> ExamAnswers { get; set; }
-        public DbSet<PracticeAttempt> PracticeAttempts { get; set; }
-        public DbSet<PracticeAnswer> PracticeAnswers { get; set; }
-        public DbSet<PracticePartResult> PracticePartResults { get; set; }
+        DbSet<ExamResult> ExamResults { get; }
+        DbSet<ExamAnswer> ExamAnswers { get; }
+        DbSet<ExamAttempt> ExamAttempts { get; }
+        DbSet<ExamSectionResult> ExamSectionResults { get; }
 
-        public DbSet<UserStatistics> UserStatistics { get; set; }
+        // --- KHỐI LUYỆN THI ---
+        DbSet<PracticeAttempt> PracticeAttempts { get; }
+        DbSet<PracticeAnswer> PracticeAnswers { get; }
+        DbSet<PracticePartResult> PracticePartResults { get; }
 
-        public DbSet<VocabularyWord> VocabularyWords { get; set; }
-        public DbSet<UserVocabularyProgress> UserVocabularyProgresses { get; set; }
+        // --- KHỐI TỪ VỰNG & LOG ---
+        DbSet<VocabularyWord> VocabularyWords { get; }
+        DbSet<UserVocabularyProgress> UserVocabularyProgresses { get; }
+        DbSet<UserStatistics> UserStatistics { get; }
+        DbSet<ActivityLog> ActivityLogs { get; }
+        DbSet<ExamActivityLog> ExamActivityLogs { get; }
 
+        // Các hàm thực thi cốt lõi
+        Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+        DatabaseFacade Database { get; }
     }
 }

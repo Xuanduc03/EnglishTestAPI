@@ -19,6 +19,7 @@ namespace App.Application.ExamAttempts.Commands
     public class StartExamResult
     {
         public Guid AttemptId { get; set; }
+        public string? GuestToken { get; set; }
         public DateTime StartedAt { get; set; }
         public DateTime? ExpiresAt { get; set; }
         public int TimeLimitSeconds { get; set; }
@@ -89,21 +90,25 @@ namespace App.Application.ExamAttempts.Commands
         {
             // ── 0. Auth 
             var loggedInUserId = _currentUserService.UserId;
-            Guid currentUserId;
-
-            if (request.UserId == Guid.Empty)
+            Guid? studentId = null;
+            string? guestToken = null;
+            if (loggedInUserId.HasValue)
             {
-                currentUserId = Guid.NewGuid(); // guest
+                if (request.UserId != loggedInUserId.Value)
+                    throw new UnauthorizedAccessException("Không thể bắt đầu bài thi cho người dùng khác.");
+                var id = await _context.Students
+                    .Where(s => s.UserId == loggedInUserId.Value && s.IsActive)
+                    .Select(s => s.Id)
+                    .FirstOrDefaultAsync(cancellationToken);
+                if (id == Guid.Empty)
+                    throw new KeyNotFoundException("Không tìm thấy hồ sơ học viên đang hoạt động.");
+                studentId = id;
             }
             else
             {
-                if (loggedInUserId == Guid.Empty)
-                    throw new UnauthorizedAccessException("Người dùng chưa xác thực.");
-
-                if (request.UserId != loggedInUserId)
+                if (request.UserId != Guid.Empty)
                     throw new UnauthorizedAccessException("Không thể bắt đầu bài thi cho người dùng khác.");
-
-                currentUserId = request.UserId;
+                guestToken = App.Application.ExamAttempts.GuestAttemptAccess.CreateToken();
             }
 
             // ── 1. Load & validate exam
@@ -119,17 +124,19 @@ namespace App.Application.ExamAttempts.Commands
             using var transaction = await _context.BeginTransactionAsync(cancellationToken);
             try
             {
-                var activeAttempt = await _context.ExamAttempts
-                    .FirstOrDefaultAsync(a =>
-                        a.UserId == currentUserId &&
-                        a.ExamId == request.ExamId &&
-                        a.Status == ExamAttemptStatus.InProgress &&
-                        a.ExpiresAt > DateTime.UtcNow,
-                        cancellationToken);
-
-                if (activeAttempt != null)
-                    throw new InvalidOperationException(
-                        $"Đã tồn tại phiên thi đang làm: {activeAttempt.Id}");
+                if (studentId.HasValue)
+                {
+                    var activeAttempt = await _context.ExamAttempts
+                        .FirstOrDefaultAsync(a =>
+                            a.StudentId == studentId &&
+                            a.ExamId == request.ExamId &&
+                            a.Status == ExamAttemptStatus.InProgress &&
+                            a.ExpiresAt > DateTime.UtcNow,
+                            cancellationToken);
+                    if (activeAttempt != null)
+                        throw new InvalidOperationException(
+                            $"Đã tồn tại phiên thi đang làm: {activeAttempt.Id}");
+                }
 
                 // ── 3. Create attempt 
                 var now = DateTime.UtcNow;
@@ -138,12 +145,12 @@ namespace App.Application.ExamAttempts.Commands
                 var attempt = new ExamAttempt
                 {
                     Id = Guid.NewGuid(),
-                    UserId = currentUserId,
+                    StudentId = studentId,
+                    GuestTokenHash = guestToken == null ? null : App.Application.ExamAttempts.GuestAttemptAccess.HashToken(guestToken),
                     ExamId = exam.Id,
                     StartedAt = now,
                     ExpiresAt = now.AddSeconds(timeLimitSeconds),
                     TimeLimitSeconds = timeLimitSeconds,
-                    Status = ExamAttemptStatus.InProgress,
                     CreatedAt = now,
                     UpdatedAt = now,
                 };
@@ -183,7 +190,9 @@ namespace App.Application.ExamAttempts.Commands
                 await transaction.CommitAsync(cancellationToken);
 
                 // ── 7. Build response 
-                return BuildResult(attempt, sections);
+                var result = BuildResult(attempt, sections);
+                result.GuestToken = guestToken;
+                return result;
             }
             catch
             {
@@ -282,15 +291,15 @@ namespace App.Application.ExamAttempts.Commands
                             GroupImageUrl = q.Group?.Media?
                                 .FirstOrDefault(m => IsImage(m.MediaType, m.Url))?.Url,
 
-                            Answers = q.Answers
-                                .OrderBy(a => a.OrderIndex)
-                                .Select(a => new AnswerOption
-                                {
-                                    Id = a.Id,
-                                    Content = isListeningSingle ? null : a.Content,
-                                    OrderIndex = a.OrderIndex,
-                                })
-                                .ToList(),
+                            Answers = q.QuestionType is QuestionTypeEnum.SingleChoice or QuestionTypeEnum.MultipleChoice
+                                ? q.Answers.OrderBy(a => a.OrderIndex)
+                                    .Select(a => new AnswerOption
+                                    {
+                                        Id = a.Id,
+                                        Content = isListeningSingle ? null : a.Content,
+                                        OrderIndex = a.OrderIndex,
+                                    }).ToList()
+                                : new List<AnswerOption>(),
                         };
                     }).ToList()
                 }).ToList()
@@ -300,6 +309,8 @@ namespace App.Application.ExamAttempts.Commands
         // ── Helpers
         private void ValidateExamStatus(Exam exam)
         {
+            if (!exam.IsActive || exam.Type != ExamType.TOEIC)
+                throw new InvalidOperationException("Đề thi TOEIC không khả dụng");
             if (exam.Status != ExamStatus.Published)
                 throw new InvalidOperationException($"Bài thi chưa được xuất bản ({exam.Status})");
 

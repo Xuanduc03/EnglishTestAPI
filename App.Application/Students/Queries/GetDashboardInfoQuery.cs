@@ -41,25 +41,29 @@ namespace App.Application.Students.Queries
                 throw new UnauthorizedAccessException("Không tìm thấy người dùng.");
 
             var student = user.StudentProfile;
+            if (student == null || !student.IsActive)
+                throw new KeyNotFoundException("Hồ sơ học viên không tồn tại hoặc không hoạt động");
 
             // Mục tiêu mặc định (có thể lấy từ bảng cấu hình sau)
             const int defaultTarget = 990;
 
-            // Tính streak history 7 ngày gần nhất
-            // Ở đây tạm dùng: nếu streak >= 7 thì cả 7 true, nếu streak = 4 thì 4 true đầu, 3 false cuối
-            // Có thể cải thiện sau khi có bảng DailyActivity
+            // Các ngày trong chuỗi học liên tiếp, theo thứ tự cũ đến mới.
             var streakHistory = new List<bool>();
-            var streakValue = student?.Streak ?? 0;
-            for (int i = 0; i < 7; i++)
+            var streakValue = student.Streak;
+            var lastStreakDate = student.LastStreakDate?.Date;
+            for (int i = 6; i >= 0; i--)
             {
-                streakHistory.Add(i < streakValue);
+                var day = DateTime.UtcNow.Date.AddDays(-i);
+                streakHistory.Add(lastStreakDate.HasValue && streakValue > 0
+                    && day <= lastStreakDate.Value
+                    && day > lastStreakDate.Value.AddDays(-streakValue));
             }
 
             return new DashboardInfoDto
             {
-                Name = user.Fullname,
-                Rank = student?.MemberLevel ?? "Học viên",
-                CurrentScore = student?.Points ?? 0, // Tạm dùng Points, sau này thay bằng điểm thực tế
+                Name = user.FullName,
+                Rank = student.MemberLevel.ToString(),
+                CurrentScore = student.Points, // Tạm dùng Points, sau này thay bằng điểm thực tế
                 TargetScore = defaultTarget,
                 Streak = streakValue,
                 StreakHistory = streakHistory

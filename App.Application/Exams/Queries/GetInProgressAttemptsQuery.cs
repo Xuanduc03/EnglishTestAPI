@@ -37,7 +37,7 @@ namespace App.Application.Exams.Queries
                 .Include(a => a.Exam)
                     .ThenInclude(e => e.Sections)
                         .ThenInclude(s => s.ExamQuestions)
-                .Where(a => a.UserId == userId && a.Status == ExamAttemptStatus.InProgress)
+                .Where(a => a.Student.UserId == userId && a.Status == ExamAttemptStatus.InProgress)
                 .OrderByDescending(a => a.UpdatedAt)
                 .ToListAsync(cancellationToken);
 

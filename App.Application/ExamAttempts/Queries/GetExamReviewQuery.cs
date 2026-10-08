@@ -13,7 +13,7 @@ namespace App.Application.ExamAttempts.Queries
     // GET /api/exam-attempts/{attemptId}/review
     // ============================================
 
-    public record GetExamReviewQuery(Guid AttemptId) : IRequest<ExamReviewDto>;
+    public record GetExamReviewQuery(Guid AttemptId, string? GuestToken = null) : IRequest<ExamReviewDto>;
 
     public class GetExamReviewQueryHandler
         : IRequestHandler<GetExamReviewQuery, ExamReviewDto>
@@ -37,12 +37,13 @@ namespace App.Application.ExamAttempts.Queries
             var attempt = await _context.ExamAttempts
                 .AsNoTracking()
                 .Include(a => a.Exam)
+                .Include(a => a.Student)
                 .FirstOrDefaultAsync(a => a.Id == request.AttemptId && !a.IsDeleted, cancellationToken)
                 ?? throw new KeyNotFoundException("Không tìm thấy phiên thi");
 
             // 2. Auth check
-            if (attempt.UserId != _currentUser.UserId)
-                throw new UnauthorizedAccessException("Không có quyền truy cập phiên thi này");
+            App.Application.ExamAttempts.GuestAttemptAccess.EnsureOwner(
+                attempt, _currentUser.UserId, request.GuestToken);
 
             // 3. Chỉ cho review sau khi đã nộp
             if (attempt.Status == ExamAttemptStatus.InProgress)

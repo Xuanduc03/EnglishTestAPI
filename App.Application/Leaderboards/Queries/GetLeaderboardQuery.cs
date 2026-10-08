@@ -54,14 +54,15 @@ namespace App.Application.Leaderboards.Queries
         {
             // Lấy top N student theo Points giảm dần
             var topStudents = await _context.Students
-                .Include(s => s.User) // nếu cần lấy AvatarUrl, Fullname từ User
+                .AsNoTracking()
+                .Where(s => s.IsActive && s.User.IsActive)
                 .OrderByDescending(s => s.Points)
                 .Take(request.Limit)
                 .Select(s => new LeaderboardEntryDto
                 {
                     UserId = s.UserId,
-                    Fullname = s.User.Fullname, // hoặc s.Fullname nếu Student đã có Fullname
-                    AvatarUrl = s.User.AvatarUrl,
+                    Fullname = s.User.FullName,
+                    AvatarUrl = s.AvatarUrl,
                     Points = s.Points,
                     Streak = s.Streak,
                     Rank = 0 // tạm thời
@@ -84,6 +85,8 @@ namespace App.Application.Leaderboards.Queries
             {
                 // Lấy tất cả student sắp xếp theo điểm (không limit) để tìm rank
                 var allOrdered = await _context.Students
+                    .AsNoTracking()
+                    .Where(s => s.IsActive && s.User.IsActive)
                     .OrderByDescending(s => s.Points)
                     .Select(s => new { s.UserId, s.Points, s.Streak })
                     .ToListAsync(ct);

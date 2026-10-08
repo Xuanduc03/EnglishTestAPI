@@ -62,19 +62,16 @@ namespace App.Application.Exams.Commands
                 throw new ValidationException($"Mã đề thi '{newCode}' đã tồn tại");
 
             // === CREATE NEW EXAM ===
-            var newExam = new Exam
+            var newExam = new Exam(ExamStatus.Draft)
             {
                 Id = Guid.NewGuid(),
                 Code = newCode,
                 Title = newTitle,
                 Duration = sourceExam.Duration,
                 TotalScore = sourceExam.TotalScore,
-                Status = ExamStatus.Draft, // Luôn tạo ở trạng thái Draft
                 Type = sourceExam.Type,
                 ShuffleQuestions = sourceExam.ShuffleQuestions,
                 ShuffleAnswers = sourceExam.ShuffleAnswers,
-                Version = 1,
-                IsActive = true,
                 CreatedAt = DateTime.UtcNow
             };
 

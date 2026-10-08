@@ -40,8 +40,7 @@ namespace App.Application.Exams.Commands
             // === VALIDATE ĐỦ ĐIỀU KIỆN PUBLISH ===
             await ValidateReadyToPublishAsync(exam, cancellationToken);
 
-            exam.Status = ExamStatus.Published;
-            exam.Version++;
+            exam.ChangeStatus(ExamStatus.Published);
             exam.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);

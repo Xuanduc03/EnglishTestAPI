@@ -49,7 +49,7 @@ namespace App.Application.ExamAttempts.Queries
         {
             var query = _context.ExamAttempts
                 .AsNoTracking()
-                .Where(a => a.UserId == request.UserId && !a.IsDeleted)
+                .Where(a => a.Student.UserId == request.UserId && !a.IsDeleted)
                 .Include(a => a.Exam)
                 .Include(a => a.SectionResults)
                     .ThenInclude(sr => sr.Section)
@@ -57,9 +57,11 @@ namespace App.Application.ExamAttempts.Queries
                 .AsQueryable();
 
             // Filter theo status
-            if (!string.IsNullOrWhiteSpace(request.Status)
-                && Enum.TryParse<ExamAttemptStatus>(request.Status, true, out var statusEnum))
+            if (!string.IsNullOrWhiteSpace(request.Status))
             {
+                if (!Enum.TryParse<ExamAttemptStatus>(request.Status, true, out var statusEnum)
+                    || !Enum.IsDefined(statusEnum))
+                    throw new ArgumentException("Trạng thái bài thi không hợp lệ", nameof(request.Status));
                 query = query.Where(a => a.Status == statusEnum);
             }
 

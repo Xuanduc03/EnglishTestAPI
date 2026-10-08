@@ -26,8 +26,8 @@ namespace App.Application.Interfaces
 
         // Truy vấn linh hoạt
         IQueryable<TEntity> Query<TEntity>(bool asNoTracking = false) where TEntity : class;
-        Task<TEntity> FindAsync<TEntity>(params object[] keyValues) where TEntity : class;
-        Task<TEntity> FirstOrDefaultAsync<TEntity>(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default) where TEntity : class;
+        Task<TEntity?> FindAsync<TEntity>(params object[] keyValues) where TEntity : class;
+        Task<TEntity?> FirstOrDefaultAsync<TEntity>(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default) where TEntity : class;
 
         void ClearChangeTracker();
 

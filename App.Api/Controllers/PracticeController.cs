@@ -2,26 +2,30 @@
 using App.Application.Practice.Commands;
 using App.Application.Practices.Commands;
 using App.Application.Practices.Queries;
+using App.Application.Services.Interface;
 using App.Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace App.Api.Controllers
 {
     [ApiController]
     [Route("api/practice")]
+    [Authorize]
     public class PracticeController : ControllerBase
     {
         private readonly IMediator _mediator;
+        private readonly ICurrentUserService _currentUser;
 
-        public PracticeController(IMediator mediator)
+        public PracticeController(IMediator mediator, ICurrentUserService currentUser)
         {
             _mediator = mediator;
+            _currentUser = currentUser;
         }
 
-        private Guid UserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+        private Guid UserId => _currentUser.UserId
+            ?? throw new UnauthorizedAccessException("Invalid user token");
 
         // ============================================
         // 1. START PRACTICE SESSION

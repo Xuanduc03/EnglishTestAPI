@@ -126,6 +126,10 @@ namespace App.Application.Questions.Commands
             CreateSingleQuestionCommand request,
             CancellationToken cancellationToken)
         {
+            if (!Enum.IsDefined(request.QuestionType))
+                throw new ValidationException("Loại câu hỏi không hợp lệ");
+            if (request.PromptType.HasValue && !Enum.IsDefined(request.PromptType.Value))
+                throw new ValidationException("Loại prompt không hợp lệ");
             // validate danh mục liên quan
             if (request.CategoryId == Guid.Empty)
                 throw new ValidationException("Vui lòng chọn danh mục");
@@ -166,9 +170,9 @@ namespace App.Application.Questions.Commands
                         $"{category.Name} phải có chính xác {expectedAnswerCount} đáp án");
 
                 var correctCount = request.Answers.Count(a => a.IsCorrect);
-                if (correctCount != 1)
+                if (request.QuestionType == QuestionTypeEnum.MultipleChoice ? correctCount < 2 : correctCount != 1)
                     throw new ValidationException(
-                        $"Câu hỏi phải có đúng 1 đáp án đúng (Tìm thấy {correctCount})");
+                        $"Số đáp án đúng không hợp lệ (Tìm thấy {correctCount})");
 
                 // Part-specific validations
                 if (category.Name.Contains("Part 1") || category.Name.Contains("Part 2"))

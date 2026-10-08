@@ -19,6 +19,7 @@ namespace App.Application.Exams.Queries
         public string? code;
         public bool? isActive;
         public string? keyword;
+        public bool PublishedOnly { get; set; }
 
     }
 
@@ -30,6 +31,13 @@ namespace App.Application.Exams.Queries
         protected override IQueryable<Exam> BuildQuery(IQueryable<Exam> query, GetExamQuery request)
         {
             query = query.Where(x => !x.IsDeleted);
+            if (request.PublishedOnly)
+            {
+                var now = DateTime.UtcNow;
+                query = query.Where(x => x.IsActive && x.Status == ExamStatus.Published
+                    && (!x.StartDate.HasValue || x.StartDate <= now)
+                    && (!x.EndDate.HasValue || x.EndDate >= now));
+            }
 
             if (!string.IsNullOrWhiteSpace(request.title))
             {

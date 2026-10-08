@@ -1,6 +1,8 @@
 ﻿using App.Application.DTOs;
 using App.Application.Interfaces;
+using App.Application.Services.Interface;
 using App.Domain.Entities;
+using App.Domain.Domain.Training;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -20,10 +22,12 @@ namespace App.Application.Practices.Queries
     public class GetPracticeResultQueryHandler : IRequestHandler<GetPracticeResultQuery, PracticeResultDto>
     {
         private readonly IAppDbContext _context;
+        private readonly ICurrentUserService _currentUser;
 
-        public GetPracticeResultQueryHandler(IAppDbContext context)
+        public GetPracticeResultQueryHandler(IAppDbContext context, ICurrentUserService currentUser)
         {
             _context = context;
+            _currentUser = currentUser;
         }
 
         public async Task<PracticeResultDto> Handle(GetPracticeResultQuery request, CancellationToken cancellationToken)
@@ -35,6 +39,9 @@ namespace App.Application.Practices.Queries
 
             if (attempt == null)
                 throw new KeyNotFoundException("Practice result not found");
+
+            if (attempt.UserId != _currentUser.UserId)
+                throw new UnauthorizedAccessException("Không có quyền truy cập phiên luyện tập này");
 
             if (attempt.Status == AttemptStatus.InProgress)
                 throw new InvalidOperationException("Practice not submitted yet");

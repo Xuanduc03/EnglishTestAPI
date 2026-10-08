@@ -13,6 +13,7 @@ namespace App.Application.ExamAttempts.Queries
     public class GetExamResultQuery : IRequest<ExamResultDto>
     {
         public Guid AttemptId { get; set; }
+        public string? GuestToken { get; set; }
     }
 
     public class GetExamResultQueryHandler
@@ -37,16 +38,17 @@ namespace App.Application.ExamAttempts.Queries
             var attempt = await _context.ExamAttempts
                 .AsNoTracking()
                 .Include(e => e.Exam)
+                .Include(e => e.Student)
                 .FirstOrDefaultAsync(a => a.Id == request.AttemptId, cancellationToken)
                 ?? throw new KeyNotFoundException($"Attempt {request.AttemptId} not found");
 
             // 2. Auth check
-            var currentUserId = _userService.UserId;
-            if (currentUserId == null || attempt.UserId != currentUserId)
-                throw new UnauthorizedAccessException("Access denied");
+            App.Application.ExamAttempts.GuestAttemptAccess.EnsureOwner(
+                attempt, _userService.UserId, request.GuestToken);
 
             // 3. Phải nộp bài mới xem được
-            if (attempt.Status != Domain.Entities.ExamAttemptStatus.Submitted)
+            if (attempt.Status != Domain.Entities.ExamAttemptStatus.Submitted &&
+                attempt.Status != Domain.Entities.ExamAttemptStatus.TimedOut)
                 throw new InvalidOperationException("Exam has not been submitted yet");
 
             // 4. Load section results — include đến Skill (Parent của Part)

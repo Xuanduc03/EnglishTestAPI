@@ -28,7 +28,6 @@ namespace App.Application.Users.Commands
             {
                 // 1. Get user
                 var user = await _dbContext.Users
-                    .Include(u => u.UserRoles)
                     .Include(u => u.RefreshTokens)
                     .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
 
@@ -44,25 +43,19 @@ namespace App.Application.Users.Commands
                 }
 
                 if (request.HardDelete)
-                {
-                    // Xóa UserRoles
-                    _dbContext.UserRoles.RemoveRange(user.UserRoles);
-
-                    // Xóa RefreshTokens
-                    _dbContext.RefreshTokens.RemoveRange(user.RefreshTokens);
-
-                    // Xóa User
-                    _dbContext.Users.Remove(user);
-                }
+                    throw new NotSupportedException("Xóa cứng không được hỗ trợ bởi cơ chế soft delete hiện tại");
                 else
                 {
-                    user.IsActive = false;
+                    user.Deactivate();
+                    user.IsDeleted = true;
+                    user.DeletedAt = DateTime.UtcNow;
+                    user.DeletedBy = request.DeletedBy;
 
                     // Revoke tất cả refresh tokens
                     var activeTokens = user.RefreshTokens.Where(rt => rt.RevokedAt == null).ToList();
                     foreach (var token in activeTokens)
                     {
-                        token.RevokedAt = DateTime.UtcNow;
+                        token.Revoke(DateTime.UtcNow);
                     }
 
                 }
@@ -71,20 +64,10 @@ namespace App.Application.Users.Commands
                 await transaction.CommitAsync(cancellationToken);
                 return true;
             }
-            catch (KeyNotFoundException)
+            catch
             {
                 await transaction.RollbackAsync(cancellationToken);
                 throw;
-            }
-            catch (InvalidOperationException)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                throw;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                throw new Exception("Có lỗi xảy ra khi xóa người dùng");
             }
         }
     }

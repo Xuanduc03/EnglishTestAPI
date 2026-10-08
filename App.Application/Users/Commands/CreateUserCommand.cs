@@ -1,175 +1,65 @@
-﻿using App.Application.DTOs;
-using App.Domain.Entities;
+using App.Application.DTOs;
 using App.Application.Interfaces;
+using App.Domain.Entities;
+using App.Domain.Identity;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using System.Net.Mail;
 using System.Text.RegularExpressions;
-using App.Application.Services.Interface;
 
-namespace App.Application.Users.Commands
+namespace App.Application.Users.Commands;
+
+public record CreateUserCommand(CreateUserDto User, Guid CreatedBy) : IRequest<Guid>;
+
+public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Guid>
 {
+    private readonly IAppDbContext _dbContext;
 
-    public record CreateUserCommand(CreateUserDto User, Guid CreatedBy) : IRequest<Guid>;
+    public CreateUserCommandHandler(IAppDbContext dbContext) => _dbContext = dbContext;
 
-    public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Guid>
+    public async Task<Guid> Handle(CreateUserCommand request, CancellationToken cancellationToken)
     {
-        private readonly IAppDbContext _dbContext;
-        private readonly ILogger<CreateUserCommandHandler> _logger;
+        var dto = request.User;
+        if (string.IsNullOrWhiteSpace(dto.Email) || !MailAddress.TryCreate(dto.Email.Trim(), out var address)
+            || address.Address != dto.Email.Trim())
+            throw new ArgumentException("Email không hợp lệ");
+        if (string.IsNullOrWhiteSpace(dto.Fullname) || dto.Fullname.Trim().Length > 100)
+            throw new ArgumentException("Họ tên không hợp lệ");
+        if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 6)
+            throw new ArgumentException("Mật khẩu không được để trống");
+        if (!string.IsNullOrWhiteSpace(dto.Phone) && !Regex.IsMatch(dto.Phone.Trim(), @"^0\d{9,10}$"))
+            throw new ArgumentException("Số điện thoại không hợp lệ");
 
-        public CreateUserCommandHandler(
-            IAppDbContext dbContext,
-            ILogger<CreateUserCommandHandler> logger)
+        var email = dto.Email.Trim().ToLowerInvariant();
+        if (await _dbContext.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == email, cancellationToken))
+            throw new InvalidOperationException("Email đã được sử dụng");
+        var phone = dto.Phone?.Trim();
+        if (!string.IsNullOrWhiteSpace(phone)
+            && await _dbContext.Users.IgnoreQueryFilters().AnyAsync(u => u.Phone == phone, cancellationToken))
+            throw new InvalidOperationException("Số điện thoại đã được sử dụng");
+
+        var user = new User(email, dto.Fullname, dto.Role)
         {
-            _dbContext = dbContext;
-            _logger = logger;
-        }
-
-        public async Task<Guid> Handle(CreateUserCommand request, CancellationToken cancellationToken)
+            Id = Guid.NewGuid(),
+            CreatedBy = request.CreatedBy
+        };
+        user.UpdateProfile(email, dto.Fullname, phone);
+        user.ChangePasswordHash(BCrypt.Net.BCrypt.HashPassword(dto.Password));
+        if (dto.Role == UserRole.Student)
         {
-            using var transaction = await _dbContext.BeginTransactionAsync(cancellationToken);
-
-            try
+            if (dto.DateOfBirth.HasValue && dto.DateOfBirth.Value.Date > DateTime.UtcNow.Date)
+                throw new ArgumentOutOfRangeException(nameof(dto.DateOfBirth), "Ngày sinh không thể ở tương lai");
+            user.StudentProfile = new Student
             {
-                var dto = request.User;
-
-                // validate input method
-                ValidateUserInput(dto);
-
-                // 2. Check duplicate email
-                var emailExists = await _dbContext.Users
-                    .AnyAsync(u => u.Email.ToLower() == dto.Email.ToLower(), cancellationToken);
-
-                if (emailExists)
-                {
-                    throw new InvalidOperationException("Email đã được sử dụng");
-                }
-
-
-                // 4. Check duplicate phone (nếu có)
-                if (!string.IsNullOrWhiteSpace(dto.Phone))
-                {
-                    var phoneExists = await _dbContext.Users
-                        .AnyAsync(u => u.Phone == dto.Phone, cancellationToken);
-
-                    if (phoneExists)
-                    {
-                        throw new InvalidOperationException("Số điện thoại đã được sử dụng");
-                    }
-                }
-                var role = await _dbContext.Roles
-                        .FirstOrDefaultAsync(r => r.Id == dto.RoleId, cancellationToken);
-
-                if (role == null)
-                {
-                    throw new Exception("không tồn tại role");
-                }
-
-                // 6. Create user entity
-                var user = new User
-                {
-                    Id = Guid.NewGuid(),
-                    Email = dto.Email.ToLower().Trim(),
-                    Password = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-                    Fullname = dto.Fullname?.Trim(),
-                    Phone = dto.Phone?.Trim(),
-                    IsActive = true,
-                    FailedLoginAttempts = 0,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    CreatedBy = request.CreatedBy
-                };
-
-                var roles = new UserRole
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = user.Id,
-                    RoleId = dto.RoleId,
-                    CreatedAt = DateTime.UtcNow,
-                    AssignedBy = request.CreatedBy,
-                    UpdatedAt = DateTime.UtcNow,
-                    CreatedBy = request.CreatedBy
-                };
-
-                _dbContext.Users.Add(user);
-                _dbContext.UserRoles.Add(roles);
-                await _dbContext.SaveChangesAsync(cancellationToken);
-
-                await transaction.CommitAsync(cancellationToken);
-
-                return user.Id;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                throw ;
-            }
+                UserId = user.Id,
+                Fullname = user.FullName,
+                DateOfBirth = dto.DateOfBirth,
+                AvatarUrl = dto.AvatarUrl,
+                MemberLevel = MemberLevel.Standard
+            };
         }
-
-        private void ValidateUserInput(CreateUserDto dto)
-        {
-            var errors = new List<string>();
-
-            // Email validation
-            if (string.IsNullOrWhiteSpace(dto.Email))
-                errors.Add("Email không được để trống");
-            else if (!IsValidEmail(dto.Email))
-                errors.Add("Email không hợp lệ");
-
-            // Username validation
-            if (string.IsNullOrWhiteSpace(dto.Fullname))
-                errors.Add("Username không được để trống");
-            else if (dto.Fullname.Length > 50)
-                errors.Add("Username không được vượt quá 50 ký tự");
-            else if (!IsValidUsername(dto.Fullname))
-                errors.Add("Username chỉ được chứa chữ cái, số và dấu gạch dưới");
-
-            // Password validation
-            if (string.IsNullOrWhiteSpace(dto.Password))
-                errors.Add("Mật khẩu không được để trống");
-           
-
-            // Phone validation (optional)
-            if (!string.IsNullOrWhiteSpace(dto.Phone) && !IsValidPhone(dto.Phone))
-                errors.Add("Số điện thoại không hợp lệ");
-
-            // Fullname validation (optional)
-            if (!string.IsNullOrWhiteSpace(dto.Fullname) && dto.Fullname.Length > 100)
-                errors.Add("Họ tên không được vượt quá 100 ký tự");
-
-            if (errors.Any())
-                throw new ArgumentException(string.Join("; ", errors));
-        }
-
-        private bool IsValidEmail(string email)
-        {
-            try
-            {
-                var addr = new System.Net.Mail.MailAddress(email);
-                return addr.Address == email;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-
-        private bool IsValidUsername(string username)
-        {
-            return Regex.IsMatch(username, @"^[a-zA-Z0-9_]+$");
-        }
-
-        private bool IsStrongPassword(string password)
-        {
-            // Ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt
-            return Regex.IsMatch(password, @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]");
-        }
-
-        private bool IsValidPhone(string phone)
-        {
-            // Vietnamese phone number: 10-11 digits, start with 0
-            return Regex.IsMatch(phone, @"^0\d{9,10}$");
-        }
+        _dbContext.Users.Add(user);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return user.Id;
     }
 }

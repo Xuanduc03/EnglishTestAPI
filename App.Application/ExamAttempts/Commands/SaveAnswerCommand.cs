@@ -20,10 +20,9 @@ namespace App.Application.ExamAttempts.Commands
         public int? TimeSpentSeconds { get; set; } // Client tracking
 
         /// <summary>
-        /// Optional: for guest mode (from session/cookie).
-        /// Server will validate against attempt.GuestSessionId.
+        /// Token returned when an anonymous attempt is started.
         /// </summary>
-        public string? GuestSessionId { get; set; }
+        public string? GuestToken { get; set; }
     }
 
     public class AnswerQuestionResult
@@ -52,17 +51,19 @@ namespace App.Application.ExamAttempts.Commands
         {
             // 1. Load attempt
             var attempt = await _context.ExamAttempts
+                .Include(a => a.Student)
                 .FirstOrDefaultAsync(a => a.Id == request.AttemptId, cancellationToken) ??
                 throw new KeyNotFoundException("Không tìm thấy phiên thi");
 
             // 2. Auth check
-            var loggedInUserId = _currentUserService.UserId;
-            if (loggedInUserId != Guid.Empty && attempt.UserId != loggedInUserId)
-                throw new UnauthorizedAccessException("Không thể lưu đáp án cho người dùng khác phiên thi");
+            App.Application.ExamAttempts.GuestAttemptAccess.EnsureOwner(
+                attempt, _currentUserService.UserId, request.GuestToken);
 
             // 2. Check status đơn giản
             if (attempt.Status != ExamAttemptStatus.InProgress)
                 throw new InvalidOperationException("Phiên thi không mở");
+            if (attempt.ExpiresAt.HasValue && attempt.ExpiresAt < DateTime.UtcNow)
+                throw new InvalidOperationException("Thời gian làm bài đã hết");
 
             // 3. Load answer record
             var examAnswer = await _context.ExamAnswers

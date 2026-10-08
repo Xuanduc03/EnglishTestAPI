@@ -28,12 +28,13 @@ namespace App.Application.Admin.Queries
 
             return await _context.ExamAttempts
                 .Where(a => a.Status == ExamAttemptStatus.Submitted
+                         && a.StudentId != null
                          && a.StartedAt >= from && a.StartedAt <= to)
-                .GroupBy(a => new { a.UserId, a.User.Fullname, a.User.Email })
+                .GroupBy(a => new { a.Student.UserId, a.Student.User.FullName, a.Student.User.Email })
                 .Select(g => new TopUserDto
                 {
                     UserId = g.Key.UserId,
-                    FullName = g.Key.Fullname,
+                    FullName = g.Key.FullName,
                     Email = g.Key.Email,
                     AttemptCount = g.Count(),
                     AvgScore = Math.Round(g.Average(a => (double?)(a.TotalScore ?? 0)) ?? 0, 1),

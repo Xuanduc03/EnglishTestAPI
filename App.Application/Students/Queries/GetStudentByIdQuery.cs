@@ -31,7 +31,8 @@ namespace App.Application.Queries
                      Id = s.Id,
                      Fullname = s.Fullname,
                      CCCD = s.CCCD,
-                     Gender = s.Gender,
+                     Gender = s.Gender.HasValue ? s.Gender.Value.ToString() : null,
+                     DateOfBirth = s.DateOfBirth,
                      SBD = s.SBD,
                      CreatedAt = s.CreatedAt,
                      UpdatedAt = s.UpdatedAt,
@@ -41,9 +42,13 @@ namespace App.Application.Queries
                      User = s.User == null ? null : new UserDto
                      {
                          Id = s.User.Id,
-                         AvatarUrl = s.User.AvatarUrl,
+                         Email = s.User.Email,
+                         Fullname = s.User.FullName,
+                         Phone = s.User.Phone,
+                         AvatarUrl = s.AvatarUrl,
                          IsActive = s.User.IsActive,
-                         LastLogin = s.User.LastLogin
+                         LastLogin = s.User.LastLoginAt,
+                         Role = s.User.Role
                      }
                  })
                  .FirstOrDefaultAsync(cancellationToken);

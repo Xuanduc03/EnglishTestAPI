@@ -11,11 +11,6 @@ namespace App.Application.Validators
                 .WithMessage("Mã đề thi không được để trống")
                 .WithErrorCode("EXAM_ID_REQUIRED");
 
-            RuleFor(x => x.UserId)
-                .NotEmpty()
-                .WithMessage("Mã người dùng không được để trống ")
-                .WithErrorCode("USER_ID_REQUIRED");
-
             RuleFor(x => x.IpAddress)
                .Matches(@"^(\d{1,3}\.){3}\d{1,3}$|^[a-f0-9:]+$")
                .When(x => !string.IsNullOrEmpty(x.IpAddress))

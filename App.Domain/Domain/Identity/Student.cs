@@ -1,0 +1,49 @@
+﻿
+
+namespace App.Domain.Entities
+{
+    public enum Gender
+    {
+        Female = 0,
+        Male = 1,
+        Other = 2
+    }
+
+    public enum MemberLevel
+    {
+        Standard = 0,
+        Silver = 1,
+        Gold = 2,
+        Diamond = 3
+    }
+    public class Student : BaseEntity
+    {
+        public string Fullname { get; set; } = string.Empty;
+        public string? CCCD { get; set; }
+        public string? SBD { get; set; }
+        public bool IsActive { get; set; } = true;
+        public Gender? Gender { get; set; }
+        public DateTime? DateOfBirth { get; set; }
+        public string? AvatarUrl { get; set; }
+        public string? AvatarPublicId { get; set; }
+
+        public int Streak { get; set; } 
+        public DateTime? LastStreakDate { get; set; }
+        public int Points { get; set; } = 0;
+        public MemberLevel MemberLevel { get; set; } = MemberLevel.Standard;
+
+        public Guid UserId { get; set; }
+        public virtual User User { get; set; } = default!;
+        public virtual ICollection<ExamAttempt> ExamAttempts { get; set; } = new List<ExamAttempt>();
+
+        public void UpdateProfile(Gender? gender, DateTime? dateOfBirth, string? avatarUrl, string? avatarPublicId)
+        {
+            if (dateOfBirth.HasValue && dateOfBirth.Value.Date > DateTime.UtcNow.Date)
+                throw new ArgumentOutOfRangeException(nameof(dateOfBirth), "Ngày sinh không thể ở tương lai");
+            Gender = gender ?? Gender;
+            DateOfBirth = dateOfBirth ?? DateOfBirth;
+            if (!string.IsNullOrWhiteSpace(avatarUrl)) AvatarUrl = avatarUrl.Trim();
+            if (!string.IsNullOrWhiteSpace(avatarPublicId)) AvatarPublicId = avatarPublicId.Trim();
+        }
+    }
+}

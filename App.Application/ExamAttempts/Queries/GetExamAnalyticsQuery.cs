@@ -86,7 +86,7 @@ namespace App.Application.ExamAttempts.Queries
             // 1. Load N lần thi gần nhất đã nộp
             var attempts = await _context.ExamAttempts
                 .AsNoTracking()
-                .Where(a => a.UserId == request.UserId
+                .Where(a => a.Student.UserId == request.UserId
                          && a.Status == Domain.Entities.ExamAttemptStatus.Submitted
                          && !a.IsDeleted)
                 .Include(a => a.Exam)
@@ -203,7 +203,7 @@ namespace App.Application.ExamAttempts.Queries
             return new ExamAnalyticsDto
             {
                 TotalAttempts = await _context.ExamAttempts
-                    .CountAsync(a => a.UserId == request.UserId
+                    .CountAsync(a => a.Student.UserId == request.UserId
                               && a.Status == Domain.Entities.ExamAttemptStatus.Submitted
                               && !a.IsDeleted, ct),
                 AverageScore = scoreHistory.Count > 0

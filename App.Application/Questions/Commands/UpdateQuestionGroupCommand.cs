@@ -323,7 +323,8 @@ namespace App.Application.Questions.Commands
             group.Content = request.GroupContent;
             group.Explanation = request.Explanation;
             group.DifficultyId = request.DifficultyId;
-            group.IsActive = request.IsActive;
+            if (request.IsActive) group.Activate();
+            else group.Deactivate();
             group.UpdatedAt = DateTime.UtcNow;
         }
 
@@ -544,7 +545,6 @@ namespace App.Application.Questions.Commands
                 Explanation = dto.Explanation,
                 DefaultScore = dto.DefaultScore,
                 ShuffleAnswers = dto.ShuffleAnswers,
-                IsActive = true,
                 CreatedAt = now,
                 UpdatedAt = now,
             };

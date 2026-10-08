@@ -61,7 +61,7 @@ namespace App.Application.ExamAttempts.Commands
             var attempt = await _context.ExamAttempts
                 .Include(a => a.Answers)
                 .FirstOrDefaultAsync(
-                    a => a.Id == request.AttemptId && a.UserId == currentUser,
+                    a => a.Id == request.AttemptId && a.Student.UserId == currentUser,
                     cancellationToken
                 );
 
@@ -82,9 +82,7 @@ namespace App.Application.ExamAttempts.Commands
             if (isTimedOut)
             {
                 // Auto submit khi hết giờ
-                attempt.Status = ExamAttemptStatus.TimedOut;
-                attempt.SubmitedAt = now;
-                attempt.ActualTimeSeconds = attempt.TimeLimitSeconds; // đã dùng hết giờ
+                attempt.Submit(now, attempt.TimeLimitSeconds, timedOut: true);
 
                 // Chấm điểm các câu đã trả lời
                 await GradeAnswersAsync(attempt, cancellationToken);

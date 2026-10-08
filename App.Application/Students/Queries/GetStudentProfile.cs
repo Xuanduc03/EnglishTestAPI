@@ -21,24 +21,25 @@ namespace App.Application.Students.Queries
             var user = await _dbContext.Users
                 .AsNoTracking()
                 .Where(u => u.Id == request.UserId)
-                .Where(u => u.StudentProfile != null)
+                .Where(u => u.IsActive && u.StudentProfile != null && u.StudentProfile.IsActive)
                 .Select(u => new StudentProfileDto
                 {
                     // user
                     UserId = u.Id,
                     Email = u.Email,
                     Phone = u.Phone,
-                    AvatarUrl = u.AvatarUrl,
-                    LastLogin = u.LastLogin,
+                    AvatarUrl = u.StudentProfile!.AvatarUrl,
+                    LastLogin = u.LastLoginAt,
                     CreatedAt = u.CreatedAt,
+                    UpdatedAt = u.StudentProfile!.UpdatedAt,
 
                     // Student
-                    Fullname = u.StudentProfile!.Fullname,
-                    Gender = u.StudentProfile.Gender,
+                    Fullname = u.FullName,
+                    Gender = u.StudentProfile.Gender.HasValue ? u.StudentProfile.Gender.Value.ToString() : null,
                     BirthDate = u.StudentProfile.DateOfBirth,
                     Streak = u.StudentProfile.Streak,
                     Points = u.StudentProfile.Points,
-                    MemberLevel = u.StudentProfile.MemberLevel,
+                    MemberLevel = u.StudentProfile.MemberLevel.ToString(),
                 })
                 .FirstOrDefaultAsync(cancellationToken);
 

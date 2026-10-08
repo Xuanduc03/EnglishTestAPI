@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using App.Application.Interfaces;
 using FluentValidation;
 using App.Infrastructure.Cloudinary;
@@ -79,14 +80,6 @@ builder.Services.AddCors(options =>
         });
 });
 
-builder.Services.AddMediatR(cfg =>
-{
-    cfg.RegisterServicesFromAssemblyContaining<StartExamCommand>();  // Assembly chứa commands/queries
-    // cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()); 
-    // cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
-});
-
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -118,12 +111,23 @@ builder.Services.AddSwaggerGen(options =>
 // Rate limiting cho chống brute-force (e.g., 5 requests/1 min per IP)
 builder.Services.AddRateLimiter(options =>
 {
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddFixedWindowLimiter("login", opt =>
     {
         opt.PermitLimit = 5;
         opt.Window = TimeSpan.FromMinutes(1);
         opt.QueueLimit = 0;
     });
+    options.AddPolicy("exam-start", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
 });
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -148,7 +152,7 @@ var appApplicationAssembly = typeof(App.Application.Auth.Commands.RegisterUserCo
 // Đăng ký MediatR và tự động tìm tất cả Handler trong assembly đó
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(appApplicationAssembly));
-builder.Services.AddAutoMapper(appApplicationAssembly);
+builder.Services.AddAutoMapper(_ => { }, appApplicationAssembly);
 builder.Services.AddValidatorsFromAssembly(appApplicationAssembly);
 
 // add service limit from file
@@ -189,10 +193,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowFrontend");
-
 app.UseHttpsRedirection();
 app.UseExceptionMiddleware();
+app.UseRouting();
+app.UseCors("AllowFrontend");
+app.UseRateLimiter();
 
 // Quan trọng: Phải gọi UseAuthentication() TRƯỚC UseAuthorization()
 app.UseAuthentication();

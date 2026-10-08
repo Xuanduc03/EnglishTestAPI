@@ -81,7 +81,7 @@ namespace App.Application.Questions.Commands
 
         internal static bool IsFillIn(QuestionTypeEnum questionType)
         {
-            throw new NotImplementedException();
+            return App.Application.Questions.Dtos.QuestionTypeHelper.IsFillIn(questionType);
         }
     }
 
@@ -221,10 +221,12 @@ namespace App.Application.Questions.Commands
                     $"Câu hỏi {index}: Nội dung không được để trống");
 
             var type = dto.QuestionType;
+            if (!Enum.IsDefined(type))
+                throw new ValidationException($"Câu hỏi {index}: Loại câu hỏi không hợp lệ");
             var partCode = partCategory.Code.Trim().ToUpper();
             var isToeic = partCode.StartsWith("PART");
 
-            // ── Completion types (10-16) ──────────────────────────
+            // ── Completion types (3, 10-16) ───────────────────────
             // Phải có ít nhất 1 answer IsCorrect=true
             if (IsCompletionType(type))
             {
@@ -290,7 +292,8 @@ namespace App.Application.Questions.Commands
 
         // ── Type helpers ──────────────────────────────────────────
         private static bool IsCompletionType(QuestionTypeEnum t) =>
-            t is QuestionTypeEnum.ShortAnswer
+            t is QuestionTypeEnum.FillBlank
+              or QuestionTypeEnum.ShortAnswer
               or QuestionTypeEnum.NoteCompletion
               or QuestionTypeEnum.FormCompletion
               or QuestionTypeEnum.TableCompletion
@@ -301,7 +304,6 @@ namespace App.Application.Questions.Commands
         private static bool IsMcqType(QuestionTypeEnum t) =>
             t is QuestionTypeEnum.SingleChoice
               or QuestionTypeEnum.MultipleChoice
-              or QuestionTypeEnum.FillBlank
               or QuestionTypeEnum.Matching
               or QuestionTypeEnum.MatchingHeading
               or QuestionTypeEnum.MatchingInformation
@@ -527,7 +529,6 @@ namespace App.Application.Questions.Commands
                 Explanation = request.Explanation,
                 DifficultyId = request.DifficultyId,
                 Transcript = request.Transcript,
-                IsActive = true,
                 CreatedAt = now,
                 UpdatedAt = now,
             };

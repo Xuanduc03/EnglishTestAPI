@@ -2,6 +2,7 @@
 using App.Application.Interfaces;
 using App.Application.Practices.Queries;
 using App.Domain.Entities;
+using App.Domain.Domain.Training;
 using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -55,7 +56,6 @@ namespace App.Application.Practice.Commands
                 Title = GenerateTitle(questions.Parts),
                 StartedAt = DateTime.UtcNow,
                 TimeLimitSeconds = request.IsTimed ? request.TimeLimitMinutes * 60 : null,
-                Status = AttemptStatus.InProgress,
                 TotalQuestions = questions.TotalQuestions,
                 IsRandomOrder = true
             };

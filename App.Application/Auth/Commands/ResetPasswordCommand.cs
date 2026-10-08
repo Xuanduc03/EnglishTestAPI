@@ -1,47 +1,45 @@
-﻿using App.Application.Interfaces;
+using App.Application.Interfaces;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace App.Application.Auth.Commands
+namespace App.Application.Auth.Commands;
+
+public class ResetPasswordCommand : IRequest<string>
 {
-    public class ResetPasswordCommand : IRequest<string>
+    public string Token { get; set; } = default!;
+    public string NewPassword { get; set; } = default!;
+}
+
+public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand, string>
+{
+    private readonly IAppDbContext _context;
+    public ResetPasswordCommandHandler(IAppDbContext context) => _context = context;
+
+    public async Task<string> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
     {
-        public string Token { get; set; }
-        public string NewPassword { get; set; }
-    }
+        if (string.IsNullOrWhiteSpace(request.Token) || string.IsNullOrWhiteSpace(request.NewPassword)
+            || request.NewPassword.Length < 6)
+            throw new ArgumentException("Token hoặc mật khẩu không hợp lệ");
 
-    public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand, string>
-    {
-        private readonly IAppDbContext _context;
+        var hash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(request.Token)));
+        var now = DateTime.UtcNow;
+        var resetToken = await _context.PasswordResetTokens
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.TokenHash == hash && t.UsedAt == null && t.ExpiresAt > now, cancellationToken);
+        if (resetToken == null)
+            throw new UnauthorizedAccessException("Token không hợp lệ hoặc đã hết hạn.");
 
-        public ResetPasswordCommandHandler(IAppDbContext context)
-        {
-            _context = context;
-        }
-
-        public async Task<string> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
-        {
-            // Hash lại token mà user gửi lên
-            using var sha = SHA256.Create();
-            var hashedToken = Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes(request.Token)));
-
-            // Tìm user có token này
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.ResetToken == hashedToken && u.ResetTokenExpiry > DateTime.UtcNow, cancellationToken);
-
-            if (user == null)
-                throw new UnauthorizedAccessException("Token không hợp lệ hoặc đã hết hạn.");
-
-            // Đổi mật khẩu (ở đây nên hash mật khẩu)
-            user.Password = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-            user.ResetToken = null;
-            user.ResetTokenExpiry = null;
-
-            await _context.SaveChangesAsync(cancellationToken);
-
-            return "Đặt lại mật khẩu thành công.";
-        }
+        await using var transaction = await _context.BeginTransactionAsync(cancellationToken);
+        resetToken.MarkUsed(now);
+        resetToken.User.ChangePasswordHash(BCrypt.Net.BCrypt.HashPassword(request.NewPassword));
+        var activeTokens = await _context.RefreshTokens
+            .Where(t => t.UserId == resetToken.UserId && t.RevokedAt == null)
+            .ToListAsync(cancellationToken);
+        foreach (var token in activeTokens) token.Revoke(now);
+        await _context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return "Đặt lại mật khẩu thành công.";
     }
 }

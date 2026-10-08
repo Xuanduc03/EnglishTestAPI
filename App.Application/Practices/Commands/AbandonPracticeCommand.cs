@@ -1,5 +1,7 @@
 ﻿using App.Application.Interfaces;
 using App.Domain.Entities;
+using App.Application.Services.Interface;
+using App.Domain.Domain.Training;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,10 +20,12 @@ namespace App.Application.Practices.Commands
     public class AbandonPracticeCommandHandler : IRequestHandler<AbandonPracticeCommand, bool>
     {
         private readonly IAppDbContext _context;
+        private readonly ICurrentUserService _currentUser;
 
-        public AbandonPracticeCommandHandler(IAppDbContext context)
+        public AbandonPracticeCommandHandler(IAppDbContext context, ICurrentUserService currentUser)
         {
             _context = context;
+            _currentUser = currentUser;
         }
 
         public async Task<bool> Handle(AbandonPracticeCommand request, CancellationToken cancellationToken)
@@ -35,6 +39,9 @@ namespace App.Application.Practices.Commands
 
             if (attempt == null)
                 throw new KeyNotFoundException($"Không tìm thấy bài thi với ID {request.SessionId}");
+
+            if (attempt.UserId != _currentUser.UserId)
+                throw new UnauthorizedAccessException("Không có quyền cập nhật phiên luyện tập này");
 
             if (attempt.Status == AttemptStatus.Submitted)
                 throw new InvalidOperationException("Bài thi đã nộp rồi, không thể cập nhật.");

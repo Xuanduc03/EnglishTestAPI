@@ -15,6 +15,7 @@ namespace App.Application.ExamAttempts.Commands.IELTS
         public Guid AttemptId { get; set; }
         public Guid ExamQuestionId { get; set; }
         public Guid UserId { get; set; }
+        public string? GuestToken { get; set; }
         public string TextAnswer { get; set; } = string.Empty;
         public int? TimeSpentSeconds { get; set; }
     }
@@ -35,11 +36,12 @@ namespace App.Application.ExamAttempts.Commands.IELTS
 
             // Validate attempt còn InProgress
             var attempt = await _context.ExamAttempts
+                .Include(a => a.Student)
                 .FirstOrDefaultAsync(a => a.Id == request.AttemptId, ct)
                 ?? throw new KeyNotFoundException("Không tìm thấy phiên thi");
 
-            if (attempt.UserId != request.UserId)
-                throw new UnauthorizedAccessException("Không thể lưu bài của người dùng khác");
+            App.Application.ExamAttempts.GuestAttemptAccess.EnsureOwner(
+                attempt, request.UserId == Guid.Empty ? null : request.UserId, request.GuestToken);
             if (attempt.Status != ExamAttemptStatus.InProgress)
                 throw new InvalidOperationException("Phiên thi đã kết thúc");
             if (attempt.ExpiresAt.HasValue && attempt.ExpiresAt < DateTime.UtcNow)

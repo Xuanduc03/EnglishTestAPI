@@ -3,12 +3,12 @@ using App.Application.Auth.Queries;
 using App.Application.DTOs;
 using App.Application.Users.Commands;
 using App.Application.Users.Queries;
+using App.Application.Services.Interface;
 using App.Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 
 namespace App.Api.Controllers
 {
@@ -18,10 +18,12 @@ namespace App.Api.Controllers
     public class UserController : ControllerBase
     {
         private readonly IMediator _mediator;
+        private readonly ICurrentUserService _currentUser;
 
-        public UserController(IMediator mediator)
+        public UserController(IMediator mediator, ICurrentUserService currentUser)
         {
             _mediator = mediator;
+            _currentUser = currentUser;
         }
 
         // get profile user 
@@ -64,22 +66,6 @@ namespace App.Api.Controllers
                 message = "Lấy thông tin người dùng thành công"
             });
 
-        }
-
-        // GET: api/users/{id}/permissions
-        [HttpGet("{id}/permissions")]
-        public async Task<IActionResult> GetUserPermissions(Guid id)
-        {
-
-            var query = new GetUserPermissionsQuery(id);
-            var result = await _mediator.Send(query);
-
-            return Ok(new
-            {
-                success = true,
-                data = result,
-                message = "Lấy quyền của người dùng thành công"
-            });
         }
 
 
@@ -152,52 +138,8 @@ namespace App.Api.Controllers
         }
 
 
-        // POST: api/users/{id}/roles
-        [HttpPost("{id}/roles")]
-        public async Task<IActionResult> AssignRolesToUser(Guid id, [FromBody] AssignRolesDto dto)
-        {
-
-            var currentUserId = GetCurrentUserId();
-            var command = new AssignRolesToUserCommand(id, dto.RoleIds, currentUserId);
-            await _mediator.Send(command);
-
-            return Ok(new
-            {
-                success = true,
-                message = "Gán vai trò cho người dùng thành công"
-            });
-
-        }
-
-        // DELETE: api/users/{userId}/roles/{roleId}
-        [HttpDelete("{userId}/roles/{roleId}")]
-        public async Task<IActionResult> RemoveRoleFromUser(Guid userId, Guid roleId)
-        {
-
-            var currentUserId = GetCurrentUserId();
-            var command = new RemoveRoleFromUserCommand(userId, roleId, currentUserId);
-            await _mediator.Send(command);
-
-            return Ok(new
-            {
-                success = true,
-                message = "Gỡ vai trò khỏi người dùng thành công"
-            });
-
-        }
-
-        private Guid GetCurrentUserId()
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                ?? User.FindFirst("sub")?.Value;
-
-            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            {
-                throw new UnauthorizedAccessException("Invalid user token");
-            }
-
-            return userId;
-        }
+        private Guid GetCurrentUserId() => _currentUser.UserId
+            ?? throw new UnauthorizedAccessException("Invalid user token");
 
     }
 }

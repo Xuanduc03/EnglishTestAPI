@@ -30,10 +30,11 @@ namespace App.Application.Auth.Queries
                     {
                         Id = u.Id,
                         Email = u.Email,
-                        Fullname = u.Fullname,
+                        Fullname = u.FullName,
                         Phone = u.Phone,
                         LockoutEnd = u.LockoutEnd,
-                        LastLogin = u.LastLogin,
+                        LastLogin = u.LastLoginAt,
+                        Role = u.Role,
                         CreatedAt = u.CreatedAt,
                         IsActive = u.IsActive,
                         UpdatedAt = u.UpdatedAt,
