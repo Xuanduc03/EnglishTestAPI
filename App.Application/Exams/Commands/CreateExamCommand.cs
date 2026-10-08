@@ -71,7 +71,7 @@ namespace App.Application.Exams.Commands
 
 
             // 7. Create exam
-            var exam = new Exam(request.IsActive ? ExamStatus.Published : ExamStatus.Draft)
+            var exam = new Exam(ExamStatus.Draft)
             {
                 Id = Guid.NewGuid(),
                 Code = request.Code,
